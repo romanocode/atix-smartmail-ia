@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mail, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 
 const Login = () => {
   const handleGoogleLogin = () => {
@@ -12,7 +12,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-purple flex items-center justify-center p-6">
       <div className="w-full max-w-md">
-        <Link to="/" className="inline-flex items-center gap-2 text-white mb-8 hover:opacity-80 transition-opacity">
+        <Link href="/" className="inline-flex items-center gap-2 text-white mb-8 hover:opacity-80 transition-opacity">
           <ArrowLeft className="h-4 w-4" />
           <span>Volver al inicio</span>
         </Link>
@@ -70,7 +70,7 @@ const Login = () => {
               </div>
             </div>
 
-            <Link to="/dashboard">
+            <Link href="/dashboard">
               <Button variant="outline" className="w-full" size="lg">
                 Ver Demo sin registro
               </Button>
@@ -79,11 +79,11 @@ const Login = () => {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Al continuar, aceptas nuestros{" "}
-            <Link to="/" className="text-primary hover:underline">
+            <Link href="/" className="text-primary hover:underline">
               Términos de Servicio
             </Link>{" "}
             y{" "}
-            <Link to="/" className="text-primary hover:underline">
+            <Link href="/" className="text-primary hover:underline">
               Política de Privacidad
             </Link>
           </p>

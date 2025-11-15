@@ -1,73 +1,82 @@
-# Welcome to your Lovable project
+# Atix SmartMail IA — Next.js
 
-## Project info
+Proyecto elaborado en Next.js 16 (Turbopack), Tailwind CSS, shadcn-ui y Prisma con base de datos Neon PostgreSQL.
 
-**URL**: https://lovable.dev/projects/6a2642bc-71e1-4765-b290-0b3d97ef5970
+## Resumen
 
-## How can I edit this code?
+- Dashboard con vistas de Emails y Kanban.
+- Conexión a Neon PostgreSQL mediante Prisma.
+- US-01: importar JSON de emails, validarlos y visualizarlos con búsqueda, orden y detalle.
 
-There are several ways of editing your application.
+## Tecnologías
 
-**Use Lovable**
+- Next.js 16 / React 18
+- Tailwind CSS 3 / shadcn-ui
+- Prisma Client / Neon PostgreSQL
+- TanStack Query
+- Zod
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/6a2642bc-71e1-4765-b290-0b3d97ef5970) and start prompting.
+## Configuración
 
-Changes made via Lovable will be committed automatically to this repo.
+1) Instalar dependencias
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+```bash
 npm i
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+2) Variables de entorno
+
+Crear `.env.local` con `DATABASE_URL` apuntando a Neon (no usar credenciales reales en commits públicos):
+
+```env
+DATABASE_URL=postgresql://<usuario>:<password>@<host>/<db>?sslmode=require&channel_binding=require
+```
+
+3) Prisma
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+El esquema está en `prisma/schema.prisma` e incluye `User` y `Email` con índices y `@@unique([externalId, userId])`.
+
+## Scripts
+
+- `npm run dev`: servidor de desarrollo.
+- `npm run build`: compilar producción.
+- `npm run start`: servidor en producción.
+- `npm run lint`: ejecutar ESLint.
+
+## Endpoints
+
+- `POST /api/emails/import`
+  - Body: array `{ id, email, received_at, subject, body }`.
+  - Valida con Zod y guarda en Prisma.
+
+- `GET /api/emails`
+  - Query: `q` (búsqueda remitente/asunto), `sort=asc|desc`.
+
+- `POST /api/emails/process`
+  - Body: `{ ids: string[], processed: boolean }`.
+
+## Interfaz
+
+- `Dashboard` con sidebar y layout.
+- `EmailsView`: importar JSON, buscar, ordenar, selección por checkboxes, acciones batch y por fila, modal de detalles con acción de procesado.
+
+## Desarrollo rápido
+
+```bash
+npm i
+echo "DATABASE_URL=postgresql://..." > .env.local
+npx prisma generate && npx prisma db push
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Abrir `http://localhost:3001/dashboard/emails`, importar un JSON y verificar listado y modal.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Notas
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/6a2642bc-71e1-4765-b290-0b3d97ef5970) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Proyecto limpio de artefactos de Vite y configurado para Next.js.
+- Usar `.env.local` para credenciales locales y evitar exponer secretos.

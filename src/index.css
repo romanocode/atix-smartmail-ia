@@ -9,7 +9,7 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 240 10% 15%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
     --card-foreground: 240 10% 15%;
@@ -17,15 +17,15 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 15%;
 
-    /* Atix purple/violet theme */
-    --primary: 250 65% 63%;
+    /* Atix purple */
+    --primary: 242 100% 70%;
     --primary-foreground: 0 0% 100%;
     
     --secondary: 45 86% 92%;
     --secondary-foreground: 240 10% 15%;
 
     --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted-foreground: 240 3.8% 30%;
 
     --accent: 250 65% 63%;
     --accent-foreground: 0 0% 100%;
@@ -33,7 +33,7 @@ All colors MUST be HSL.
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5.9% 90%;
+    --border: 0 0% 0%;
     --input: 240 5.9% 90%;
     --ring: 250 65% 63%;
 
@@ -87,6 +87,55 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
+
+}
+
+@font-face {
+  font-family: "Acid Grotesk";
+  src: url("/fonts/acid-grotesk-thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Acid Grotesk";
+  src: url("/fonts/acid-grotesk-extralight.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Acid Grotesk";
+  src: url("/fonts/acid-grotesk-light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Acid Grotesk";
+  src: url("/fonts/acid-grotesk-regular.otf") format("opentype"), url("/fonts/acid-grotesk-normal.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Acid Grotesk";
+  src: url("/fonts/acid-grotesk-medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Acid Grotesk";
+  src: url("/fonts/acid-grotesk-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }

@@ -1,0 +1,11 @@
+{
+  "/": "pages/index.js",
+  "/404": "pages/404.js",
+  "/_app": "pages/_app.js",
+  "/_document": "pages/_document.js",
+  "/api/emails": "pages/api/emails.js",
+  "/dashboard": "pages/dashboard.js",
+  "/dashboard/emails": "pages/dashboard/emails.js",
+  "/dashboard/kanban": "pages/dashboard/kanban.js",
+  "/login": "pages/login.js"
+}

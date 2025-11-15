@@ -1,9 +1,10 @@
-import { Outlet } from "react-router-dom";
 import Sidebar from "@/components/Sidebar";
-import { User } from "lucide-react";
+import { User, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ReactNode } from "react";
 
-const DashboardLayout = () => {
+const DashboardLayout = ({ children }: { children?: ReactNode }) => {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -11,13 +12,19 @@ const DashboardLayout = () => {
       {/* Main Content */}
       <div className="ml-64 min-h-screen">
         {/* Top Bar */}
-        <header className="h-16 border-b border-border bg-card sticky top-0 z-30 flex items-center justify-between px-6">
+        <header className="h-16 sticky top-0 z-30 flex items-center justify-between px-6 bg-background">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Dashboard</span>
             <span>/</span>
             <span>Dashboard</span>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Volver al inicio
+              </Button>
+            </Link>
             <Button variant="ghost" size="sm" className="gap-2">
               <User className="h-4 w-4" />
               Usuario Demo
@@ -25,12 +32,9 @@ const DashboardLayout = () => {
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="p-6">
-          <Outlet />
-        </main>
+        <main className="p-6">{children}</main>
+        </div>
       </div>
-    </div>
   );
 };
 

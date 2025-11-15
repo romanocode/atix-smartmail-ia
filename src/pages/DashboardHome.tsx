@@ -40,16 +40,16 @@ const DashboardHome = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-3xl font-normal text-foreground">
             {getGreeting()}, Usuario
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">{formatDate()}</p>
+          <p className="text-sm text-muted-foreground mt-2">{formatDate()}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           <Button variant="outline" className="gap-2">
             <RefreshCw className="h-4 w-4" />
             Refrescar
@@ -71,7 +71,7 @@ const DashboardHome = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         <StatsCard
           title="Total de Emails"
           value={stats.totalEmails}
@@ -102,7 +102,7 @@ const DashboardHome = () => {
       </div>
 
       {/* Quick Access */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <QuickAccessCard
           title="Ver Todos los Emails"
           description="Tabla interactiva con búsqueda y filtros"
@@ -118,9 +118,9 @@ const DashboardHome = () => {
       </div>
 
       {/* Recent Emails Section */}
-      <Card className="p-6 shadow-card border-0">
+      <Card className="p-8 border-0">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-foreground">Emails Recientes</h2>
+          <h2 className="text-xl font-medium text-foreground">Emails Recientes</h2>
           <Button variant="link" className="text-primary" asChild>
             <a href="/dashboard/emails" className="flex items-center gap-1">
               Ver todos
@@ -129,11 +129,11 @@ const DashboardHome = () => {
           </Button>
         </div>
 
-        <div className="text-center py-12">
+        <div className="text-center py-16">
           <div className="mb-4">
             <Mail className="h-16 w-16 text-muted-foreground mx-auto opacity-50" />
           </div>
-          <h3 className="text-lg font-medium text-foreground mb-2">
+          <h3 className="text-lg font-normal text-foreground mb-2">
             Sin emails recientes
           </h3>
           <p className="text-sm text-muted-foreground mb-6">

@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  emails    Email[]
+
+  @@map("users")
+}
+
+model Email {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  externalId      String
+  sender          String
+  receivedAt      DateTime
+  subject         String
+  body            String   @db.Text
+
+  processed       Boolean  @default(false)
+  category        String?
+  priority        String?
+  hasTask         Boolean  @default(false)
+  taskDescription String?  @db.Text
+
+  kanbanStatus    String   @default("todo")
+  kanbanOrder     Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, processed])
+  @@index([userId, hasTask])
+  @@index([userId, kanbanStatus])
+  @@unique([externalId, userId])
+  @@map("emails")
+}

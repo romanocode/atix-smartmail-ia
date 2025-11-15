@@ -6,6 +6,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Calendar, User, Tag, Flag } from "lucide-react";
 
 interface Email {
@@ -18,6 +20,7 @@ interface Email {
   priority?: string;
   hasTask?: boolean;
   taskDescription?: string;
+  processed?: boolean;
 }
 
 interface EmailDetailsDialogProps {
@@ -28,6 +31,22 @@ interface EmailDetailsDialogProps {
 
 const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogProps) => {
   if (!email) return null;
+
+  const markOneProcessed = async (processed: boolean) => {
+    const res = await fetch("/api/emails/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [email.id], processed }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      toast.success(processed ? "Procesado" : "Desmarcado");
+      window.dispatchEvent(new CustomEvent("emails:refresh"));
+      onOpenChange(false);
+    } else {
+      toast.error(json.error || "Error al actualizar");
+    }
+  };
 
   const getCategoryBadge = (category?: string) => {
     const variants: Record<string, string> = {
@@ -94,6 +113,9 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
             {email.hasTask && (
               <Badge className="bg-primary/10 text-primary">Tiene tarea</Badge>
             )}
+            <Badge className={email.processed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+              {email.processed ? "Procesado" : "No procesado"}
+            </Badge>
           </div>
 
           {/* Task Description */}
@@ -107,6 +129,16 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
               </p>
             </div>
           )}
+
+          <div className="flex justify-end gap-2">
+            {email.processed ? (
+              <Button variant="outline" onClick={() => markOneProcessed(false)}>
+                Desmarcar
+              </Button>
+            ) : (
+              <Button onClick={() => markOneProcessed(true)}>Marcar procesado</Button>
+            )}
+          </div>
 
           {/* Email Body */}
           <div className="space-y-2">

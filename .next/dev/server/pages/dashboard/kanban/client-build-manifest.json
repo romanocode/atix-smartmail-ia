@@ -1,0 +1,5 @@
+{
+  "/dashboard/kanban": [
+    "static/chunks/pages/dashboard/kanban.js"
+  ]
+}
