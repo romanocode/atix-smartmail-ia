@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 import EmailDetailsDialog from "@/components/EmailDetailsDialog";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface Email {
   id: string;
@@ -14,36 +16,51 @@ interface Email {
   priority?: string;
   hasTask?: boolean;
   taskDescription?: string;
+  kanbanStatus?: "todo" | "in_progress" | "done";
+  kanbanOrder?: number;
 }
 
 const KanbanView = () => {
-  const [emails] = useState<Email[]>([
-    {
-      id: "1",
-      email: "cliente@empresa.com",
-      subject: "Reunión urgente - Propuesta Q4",
-      received_at: "2024-11-14T09:15:00Z",
-      body: "Necesito que revisemos la propuesta para el cuarto trimestre.",
-      category: "cliente",
-      priority: "alta",
-      hasTask: true,
-      taskDescription: "Preparar presentación para reunión Q4",
-    },
-    {
-      id: "2",
-      email: "lead@startup.com",
-      subject: "Interesado en sus servicios",
-      received_at: "2024-11-14T08:30:00Z",
-      body: "Estamos buscando un proveedor de servicios.",
-      category: "lead",
-      priority: "media",
-      hasTask: true,
-      taskDescription: "Enviar cotización y material comercial",
-    },
-  ]);
+  const [emails, setEmails] = useState<Email[]>([]);
 
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<{ todo: number | null; in_progress: number | null; done: number | null }>({
+    todo: null,
+    in_progress: null,
+    done: null,
+  });
+  const [overStatus, setOverStatus] = useState<"todo" | "in_progress" | "done" | null>(null);
+  const [dragGhost, setDragGhost] = useState<HTMLElement | null>(null);
+
+  const { data, refetch } = useQuery({
+    queryKey: ["emails", "kanban"],
+    queryFn: async () => {
+      const res = await fetch(`/api/emails`);
+      const json = await res.json();
+      return json.emails as any[];
+    },
+  });
+
+  useEffect(() => {
+    if (Array.isArray(data)) {
+      const mapped = data.map((e: any) => ({
+        id: e.id,
+        email: e.sender,
+        subject: e.subject,
+        received_at: e.receivedAt,
+        body: e.body,
+        category: e.category ?? undefined,
+        priority: e.priority ?? undefined,
+        hasTask: e.hasTask ?? false,
+        taskDescription: e.taskDescription ?? undefined,
+        kanbanStatus: e.kanbanStatus ?? "todo",
+        kanbanOrder: e.kanbanOrder ?? 0,
+      }));
+      setEmails(mapped);
+    }
+  }, [data]);
 
   const getPriorityBadge = (priority?: string) => {
     const variants: Record<string, { bg: string; icon: React.ReactNode }> = {
@@ -68,7 +85,88 @@ const KanbanView = () => {
     setDialogOpen(true);
   };
 
-  const taskEmails = emails.filter((e) => e.hasTask);
+  const taskEmails = useMemo(() => emails.filter((e) => e.hasTask), [emails]);
+  const columns = useMemo(() => {
+    const grouped: Record<string, Email[]> = { todo: [], in_progress: [], done: [] };
+    taskEmails.forEach((e) => {
+      const s = e.kanbanStatus || "todo";
+      grouped[s].push(e);
+    });
+    const pRank: Record<string, number> = { alta: 3, media: 2, baja: 1 };
+    const cRank: Record<string, number> = { cliente: 4, lead: 3, interno: 2, spam: 1 };
+    const cmp = (a: Email, b: Email) => {
+      const pa = pRank[a.priority || "baja"]; const pb = pRank[b.priority || "baja"]; if (pa !== pb) return pb - pa;
+      const ca = cRank[a.category || "spam"]; const cb = cRank[b.category || "spam"]; if (ca !== cb) return cb - ca;
+      const ra = new Date(a.received_at).getTime(); const rb = new Date(b.received_at).getTime(); if (ra !== rb) return rb - ra;
+      return (a.kanbanOrder || 0) - (b.kanbanOrder || 0);
+    };
+    (grouped.todo as Email[]).sort(cmp);
+    (grouped.in_progress as Email[]).sort(cmp);
+    (grouped.done as Email[]).sort(cmp);
+    return grouped;
+  }, [taskEmails]);
+
+  const persistColumn = async (status: "todo" | "in_progress" | "done", ids: string[]) => {
+    const res = await fetch("/api/emails/kanban", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, ids }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      toast.success("Kanban actualizado");
+      refetch();
+    } else {
+      toast.error(json.error || "Error al actualizar Kanban");
+    }
+  };
+
+  const onDropTo = async (
+    e: React.DragEvent<HTMLDivElement>,
+    status: "todo" | "in_progress" | "done"
+  ) => {
+    e.preventDefault();
+    const fromData = e.dataTransfer.getData("text/plain");
+    const id = fromData || draggingId;
+    if (!id) return;
+    const current = columns[status] || [];
+    const moved = taskEmails.find((x) => x.id === id);
+    if (!moved) return;
+    const without = current.filter((x) => x.id !== id);
+    const insertAtRaw = hoverIndex[status];
+    const insertAt = insertAtRaw == null ? without.length : Math.max(0, Math.min(insertAtRaw, without.length));
+    const next = [...without.slice(0, insertAt), { ...moved, kanbanStatus: status }, ...without.slice(insertAt)];
+    const nextIds = next.map((x) => x.id);
+    await persistColumn(status, nextIds);
+    setHoverIndex((prev) => ({ ...prev, [status]: null } as any));
+    setDraggingId(null);
+    setOverStatus(null);
+    if (dragGhost) {
+      dragGhost.remove();
+      setDragGhost(null);
+    }
+  };
+
+  const createDragImage = (text: string) => {
+    const el = document.createElement("div");
+    el.style.position = "absolute";
+    el.style.top = "-1000px";
+    el.style.left = "-1000px";
+    el.style.padding = "8px 12px";
+    el.style.borderRadius = "8px";
+    el.style.background = "#fff";
+    el.style.border = "1px solid rgba(0,0,0,0.08)";
+    el.style.boxShadow = "0 6px 20px rgba(0,0,0,0.08)";
+    el.style.opacity = "0.85";
+    el.style.fontSize = "12px";
+    el.style.color = "#111";
+    el.style.maxWidth = "240px";
+    el.style.pointerEvents = "none";
+    el.textContent = text;
+    document.body.appendChild(el);
+    setDragGhost(el);
+    return el;
+  };
 
   return (
     <div className="space-y-6">
@@ -92,17 +190,47 @@ const KanbanView = () => {
                 Por hacer
               </h3>
               <Badge className="bg-blue-100 text-blue-800">
-                {taskEmails.length}
+                {(columns.todo || []).length}
               </Badge>
             </div>
           </Card>
-          <div className="space-y-3">
-            {taskEmails.map((email) => {
+          <div
+            className={`space-y-3 ${overStatus === "todo" ? "border-2 border-dashed border-primary/40 bg-primary/5" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOverStatus("todo");
+            }}
+            onDragLeave={() => setOverStatus((prev) => (prev === "todo" ? null : prev))}
+            onDrop={(e) => onDropTo(e, "todo")}
+          >
+            {(columns.todo || []).map((email, index) => {
               const priorityInfo = getPriorityBadge(email.priority);
+              const isDragging = draggingId === email.id;
               return (
+                <>
+                  {hoverIndex.todo === index && (
+                    <div className="h-2 rounded border-2 border-dashed border-primary/40" />
+                  )}
                 <Card
                   key={email.id}
-                  className="p-4 bg-card border border-border hover:shadow-sm hover:border-primary/20 transition-all cursor-pointer"
+                  className={`p-4 bg-card border border-border hover:shadow-sm hover:border-primary/20 transition-all duration-200 cursor-pointer ${isDragging ? "opacity-70 ring-2 ring-primary/40" : ""}`}
+                  draggable
+                  onDragStart={(ev) => {
+                    ev.dataTransfer.setData("text/plain", email.id);
+                    setDraggingId(email.id);
+                    const img = createDragImage(email.subject);
+                    ev.dataTransfer.setDragImage(img, 0, 0);
+                  }}
+                  onDragOver={(ev) => {
+                    ev.preventDefault();
+                    setHoverIndex((prev) => ({ ...prev, todo: index }));
+                  }}
+                  onDragEnd={() => {
+                    if (dragGhost) {
+                      dragGhost.remove();
+                      setDragGhost(null);
+                    }
+                  }}
                   onClick={() => handleCardClick(email)}
                 >
                   <div className="space-y-3">
@@ -129,6 +257,7 @@ const KanbanView = () => {
                     )}
                   </div>
                 </Card>
+                </>
               );
             })}
           </div>
@@ -141,15 +270,66 @@ const KanbanView = () => {
               <h3 className="font-semibold text-lg text-foreground">
                 En progreso
               </h3>
-              <Badge className="bg-yellow-100 text-yellow-800">0</Badge>
+              <Badge className="bg-yellow-100 text-yellow-800">{(columns.in_progress || []).length}</Badge>
             </div>
           </Card>
-          <Card className="p-8 border-2 border-dashed border-border bg-muted/20">
-            <div className="text-center text-muted-foreground text-sm">
-              <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>Arrastra tareas aquí</p>
-            </div>
-          </Card>
+          <div
+            className={`space-y-3 min-h-24 p-2 border-2 border-dashed bg-muted/20 ${overStatus === "in_progress" ? "border-primary/40 bg-primary/5" : "border-border"}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOverStatus("in_progress");
+            }}
+            onDragLeave={() => setOverStatus((prev) => (prev === "in_progress" ? null : prev))}
+            onDrop={(e) => onDropTo(e, "in_progress")}
+          >
+            {(columns.in_progress || []).map((email, index) => {
+              const priorityInfo = getPriorityBadge(email.priority);
+              const isDragging = draggingId === email.id;
+              return (
+                <>
+                  {hoverIndex.in_progress === index && (
+                    <div className="h-2 rounded border-2 border-dashed border-primary/40" />
+                  )}
+                  <Card
+                    key={email.id}
+                  className={`p-4 bg-card border border-border hover:shadow-sm hover:border-primary/20 transition-all duration-200 cursor-pointer ${isDragging ? "opacity-70 ring-2 ring-primary/40" : ""}`}
+                  draggable
+                  onDragStart={(ev) => {
+                    ev.dataTransfer.setData("text/plain", email.id);
+                    setDraggingId(email.id);
+                    const img = createDragImage(email.subject);
+                    ev.dataTransfer.setDragImage(img, 0, 0);
+                  }}
+                  onDragOver={(ev) => {
+                    ev.preventDefault();
+                    setHoverIndex((prev) => ({ ...prev, in_progress: index }));
+                  }}
+                  onDragEnd={() => {
+                    if (dragGhost) {
+                      dragGhost.remove();
+                      setDragGhost(null);
+                    }
+                  }}
+                  onClick={() => handleCardClick(email)}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm text-foreground line-clamp-2">
+                        {email.subject}
+                      </p>
+                      <Badge className={priorityInfo.bg}>
+                        <span className="flex items-center gap-1">
+                          {priorityInfo.icon}
+                        </span>
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{email.email}</p>
+                  </div>
+                  </Card>
+                </>
+              );
+            })}
+          </div>
         </div>
 
         {/* Completado */}
@@ -159,15 +339,75 @@ const KanbanView = () => {
               <h3 className="font-semibold text-lg text-foreground">
                 Completado
               </h3>
-              <Badge className="bg-green-100 text-green-800">0</Badge>
+              <Badge className="bg-green-100 text-green-800">{(columns.done || []).length}</Badge>
             </div>
           </Card>
-          <Card className="p-8 border-2 border-dashed border-border bg-muted/20">
-            <div className="text-center text-muted-foreground text-sm">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>Las tareas completadas aparecerán aquí</p>
-            </div>
-          </Card>
+          <div
+            className={`space-y-3 min-h-24 p-2 border-2 border-dashed bg-muted/20 ${overStatus === "done" ? "border-primary/40 bg-primary/5" : "border-border"}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setOverStatus("done");
+            }}
+            onDragLeave={() => setOverStatus((prev) => (prev === "done" ? null : prev))}
+            onDrop={(e) => onDropTo(e, "done")}
+          >
+            {(columns.done || []).map((email, index) => {
+              const priorityInfo = getPriorityBadge(email.priority);
+              const isDragging = draggingId === email.id;
+              return (
+                <>
+                  {hoverIndex.done === index && (
+                    <div className="h-2 rounded border-2 border-dashed border-primary/40" />
+                  )}
+                  <Card
+                    key={email.id}
+                  className={`p-4 bg-card border border-border hover:shadow-sm hover:border-primary/20 transition-all duration-200 cursor-pointer ${isDragging ? "opacity-70 ring-2 ring-primary/40" : ""}`}
+                  draggable
+                  onDragStart={(ev) => {
+                    ev.dataTransfer.setData("text/plain", email.id);
+                    setDraggingId(email.id);
+                    const img = createDragImage(email.subject);
+                    ev.dataTransfer.setDragImage(img, 0, 0);
+                  }}
+                  onDragOver={(ev) => {
+                    ev.preventDefault();
+                    setHoverIndex((prev) => ({ ...prev, done: index }));
+                  }}
+                  onDragEnd={() => {
+                    if (dragGhost) {
+                      dragGhost.remove();
+                      setDragGhost(null);
+                    }
+                  }}
+                  onClick={() => handleCardClick(email)}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm text-foreground line-clamp-2">
+                        {email.subject}
+                      </p>
+                      <Badge className={priorityInfo.bg}>
+                        <span className="flex items-center gap-1">
+                          {priorityInfo.icon}
+                        </span>
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{email.email}</p>
+                  </div>
+                  </Card>
+                </>
+              );
+            })}
+            {((columns.todo || []).length === 0 && overStatus === "todo") && (
+              <div className="h-10 rounded border-2 border-dashed border-primary/40 bg-primary/10" />
+            )}
+            {((columns.in_progress || []).length === 0 && overStatus === "in_progress") && (
+              <div className="h-10 rounded border-2 border-dashed border-primary/40 bg-primary/10" />
+            )}
+            {((columns.done || []).length === 0 && overStatus === "done") && (
+              <div className="h-10 rounded border-2 border-dashed border-primary/40 bg-primary/10" />
+            )}
+          </div>
         </div>
       </div>
 
@@ -175,7 +415,10 @@ const KanbanView = () => {
       <EmailDetailsDialog
         email={selectedEmail}
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setSelectedEmail(null);
+        }}
       />
     </div>
   );
