@@ -7,32 +7,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const q = (req.query.q as string) || "";
-    const sort = (req.query.sort as string) || "desc"; // by receivedAt
-
     const user = await prisma.user.upsert({
       where: { email: DEMO_USER_EMAIL },
       update: {},
       create: { email: DEMO_USER_EMAIL, name: "Demo User" },
     });
 
-    const where = q
-      ? {
-          userId: user.id,
-          OR: [
-            { sender: { contains: q, mode: "insensitive" as const } },
-            { subject: { contains: q, mode: "insensitive" as const } },
-          ],
-        }
-      : { userId: user.id };
+    const [totalEmails, unprocessedEmails, pendingTasks, completedTasks] = await Promise.all([
+      prisma.email.count({ where: { userId: user.id } }),
+      prisma.email.count({ where: { userId: user.id, processed: false } }),
+      prisma.email.count({ where: { userId: user.id, hasTask: true, kanbanStatus: { in: ["todo", "in_progress"] } } }),
+      prisma.email.count({ where: { userId: user.id, hasTask: true, kanbanStatus: "done" } }),
+    ]);
 
-    const emails = await prisma.email.findMany({
-      where,
-      orderBy: { receivedAt: sort === "asc" ? "asc" : "desc" },
-      take: 500,
-    });
-
-    return res.status(200).json({ ok: true, emails });
+    return res.status(200).json({ ok: true, stats: { totalEmails, unprocessedEmails, pendingTasks, completedTasks } });
   } catch (err) {
     return res.status(500).json({ error: "Server error", details: String(err) });
   }

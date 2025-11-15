@@ -9,6 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Calendar, User, Tag, Flag } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useState } from "react";
 
 interface Email {
   id: string;
@@ -30,6 +34,20 @@ interface EmailDetailsDialogProps {
 }
 
 const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogProps) => {
+  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [priority, setPriority] = useState<string | undefined>(undefined);
+  const [taskDescription, setTaskDescription] = useState<string>("");
+  const [hasTask, setHasTask] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (email) {
+      setCategory(email.category);
+      setPriority(email.priority);
+      setTaskDescription(email.taskDescription || "");
+      setHasTask(!!email.hasTask);
+    }
+  }, [email]);
+
   if (!email) return null;
 
   const markOneProcessed = async (processed: boolean) => {
@@ -45,6 +63,22 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
       onOpenChange(false);
     } else {
       toast.error(json.error || "Error al actualizar");
+    }
+  };
+
+  const saveMetadata = async () => {
+    const res = await fetch("/api/emails/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: email.id, hasTask, category, priority, taskDescription }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      toast.success("Cambios guardados");
+      window.dispatchEvent(new CustomEvent("emails:refresh"));
+      onOpenChange(false);
+    } else {
+      toast.error(json.error || "Error al guardar");
     }
   };
 
@@ -118,17 +152,45 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
             </Badge>
           </div>
 
-          {/* Task Description */}
-          {email.hasTask && email.taskDescription && (
-            <div className="bg-muted/50 p-4 rounded-lg border border-border">
-              <h4 className="font-semibold text-sm text-foreground mb-2">
-                📋 Tarea detectada
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                {email.taskDescription}
-              </p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground">Categoría</label>
+                <Select value={category || ""} onValueChange={(v) => setCategory(v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cliente">cliente</SelectItem>
+                    <SelectItem value="lead">lead</SelectItem>
+                    <SelectItem value="interno">interno</SelectItem>
+                    <SelectItem value="spam">spam</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Prioridad</label>
+                <Select value={priority || ""} onValueChange={(v) => setPriority(v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alta">alta</SelectItem>
+                    <SelectItem value="media">media</SelectItem>
+                    <SelectItem value="baja">baja</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2">
+                <Input type="checkbox" checked={hasTask} onChange={(e) => setHasTask(e.currentTarget.checked)} />
+                <span className="text-xs text-muted-foreground">Convertir en tarea</span>
+              </div>
             </div>
-          )}
+            <div>
+              <label className="text-xs text-muted-foreground">Descripción de tarea</label>
+              <Textarea className="mt-1" value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button onClick={saveMetadata}>Guardar cambios</Button>
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2">
             {email.processed ? (

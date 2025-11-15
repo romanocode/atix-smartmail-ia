@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import EmailDetailsDialog from "@/components/EmailDetailsDialog";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { z } from "zod";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Email {
   id: string;
@@ -46,6 +48,15 @@ const EmailsView = () => {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importTotal, setImportTotal] = useState(0);
+  const [importDone, setImportDone] = useState(0);
+  const [importFailed, setImportFailed] = useState(0);
+  const [processedFilter, setProcessedFilter] = useState<"all" | "processed" | "unprocessed">("all");
+  const [taskOnly, setTaskOnly] = useState<boolean>(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [prioritySort, setPrioritySort] = useState<"none" | "priority" | "category_priority">("none");
 
   const { data, refetch } = useQuery({
     queryKey: ["emails", searchTerm, sortOrder],
@@ -86,7 +97,7 @@ const EmailsView = () => {
     z.object({
       id: z.string(),
       email: z.string().email(),
-      received_at: z.string(),
+      received_at: z.string().refine((v) => !Number.isNaN(Date.parse(v))),
       subject: z.string(),
       body: z.string(),
     }),
@@ -105,21 +116,55 @@ const EmailsView = () => {
     }
     const safe = ImportSchema.safeParse(parsed);
     if (!safe.success) {
-      toast.error("El JSON no cumple el formato requerido");
+      const issue = safe.error.issues?.[0];
+      const path = issue?.path?.join(".") || "payload";
+      const message = issue?.message || "Formato inválido";
+      toast.error(`Error en ${path}: ${message}`);
       return;
     }
-    const res = await fetch("/api/emails/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(safe.data),
-    });
-    const json = await res.json();
-    if (res.ok) {
-      toast.success(`Importados ${json.imported} emails`);
-      refetch();
-    } else {
-      toast.error(json.error || "Error al importar");
+    const items = safe.data;
+    const chunkSize = 100;
+    setIsImporting(true);
+    setImportTotal(items.length);
+    setImportDone(0);
+
+    let importedCount = 0;
+    let failedCount = 0;
+    for (let i = 0; i < items.length; i += chunkSize) {
+      const chunk = items.slice(i, i + chunkSize);
+      let res = await fetch("/api/emails/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(chunk),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        res = await fetch("/api/emails/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(chunk),
+        });
+        const retryJson = await res.json();
+        if (!res.ok) {
+          failedCount += chunk.length;
+        } else {
+          importedCount += retryJson.imported || chunk.length;
+        }
+      } else {
+        importedCount += json.imported || chunk.length;
+      }
+      setImportDone(Math.min(i + chunk.length, items.length));
     }
+
+    setIsImporting(false);
+    setImportFailed(failedCount);
+    if (failedCount > 0) {
+      toast.error(`Fallidos ${failedCount}. Importados ${importedCount}.`);
+    } else {
+      toast.success(`Importados ${importedCount} emails`);
+    }
+    setSelectedIds(new Set());
+    refetch();
   };
 
   const getCategoryBadge = (category?: string) => {
@@ -153,7 +198,24 @@ const EmailsView = () => {
     return variants[priority || "baja"];
   };
 
-  const filteredEmails = useMemo(() => emails, [emails]);
+  const filteredEmails = useMemo(() => {
+    const pRank: Record<string, number> = { alta: 3, media: 2, baja: 1 };
+    const cRank: Record<string, number> = { cliente: 4, lead: 3, interno: 2, spam: 1 };
+    let list = [...emails];
+    if (processedFilter !== "all") list = list.filter((e) => processedFilter === "processed" ? e.processed : !e.processed);
+    if (taskOnly) list = list.filter((e) => e.hasTask);
+    if (categoryFilter !== "all") list = list.filter((e) => (e.category || "") === categoryFilter);
+    if (prioritySort !== "none") {
+      list.sort((a, b) => {
+        if (prioritySort === "category_priority") {
+          const ca = cRank[a.category || "spam"], cb = cRank[b.category || "spam"]; if (ca !== cb) return cb - ca;
+        }
+        const pa = pRank[a.priority || "baja"], pb = pRank[b.priority || "baja"]; if (pa !== pb) return pb - pa;
+        const ra = new Date(a.received_at).getTime(), rb = new Date(b.received_at).getTime(); return rb - ra;
+      });
+    }
+    return list;
+  }, [emails, processedFilter, taskOnly, categoryFilter, prioritySort]);
 
   const handleRowClick = (email: Email) => {
     setSelectedEmail(email);
@@ -234,26 +296,86 @@ const EmailsView = () => {
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filtrar
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  Filtrar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Procesado</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={processedFilter} onValueChange={(v) => setProcessedFilter(v as any)}>
+                  <DropdownMenuRadioItem value="all">Todos</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="processed">Solo procesados</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="unprocessed">Sin procesar</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem checked={taskOnly} onCheckedChange={(v) => setTaskOnly(!!v)}>
+                  Solo tareas
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Categoría</DropdownMenuLabel>
+                <div className="px-2 py-1.5">
+                  <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
+                    <SelectTrigger className="h-8"><SelectValue placeholder="Todas" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="cliente">cliente</SelectItem>
+                      <SelectItem value="lead">lead</SelectItem>
+                      <SelectItem value="interno">interno</SelectItem>
+                      <SelectItem value="spam">spam</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Orden</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={prioritySort} onValueChange={(v) => setPrioritySort(v as any)}>
+                  <DropdownMenuRadioItem value="none">Por fecha</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="priority">Prioridad</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="category_priority">Categoría + Prioridad</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" className="gap-2" onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}>
               Ordenar por fecha ({sortOrder})
             </Button>
-            <label htmlFor="file-upload-emails">
-              <Button className="gap-2 bg-primary hover:bg-primary/90">
-                <Upload className="h-4 w-4" />
-                Importar JSON
-              </Button>
-              <input
-                id="file-upload-emails"
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-            </label>
+            <Button
+              className="gap-2 bg-primary hover:bg-primary/90"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+            >
+              <Upload className="h-4 w-4" />
+              {isImporting ? `Importando (${importDone}/${importTotal})` : "Importar JSON"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              id="file-upload-emails"
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              onChange={handleFileUpload}
+            />
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={selectedIds.size === 0}
+              onClick={() => {
+                const selected = emails.filter((e) => selectedIds.has(e.id));
+                const blob = new Blob([JSON.stringify(selected, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `emails-seleccion-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast.success(`Exportados ${selected.length} emails`);
+              }}
+            >
+              Exportar selección
+            </Button>
             <Button
               variant="default"
               className="gap-2"
@@ -277,6 +399,25 @@ const EmailsView = () => {
           </div>
         </div>
       </Card>
+      {isImporting && (
+        <Card className="p-4 border-0">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Importando</span>
+              <span>{importDone}/{importTotal}</span>
+            </div>
+            <div className="h-2 w-full bg-muted rounded">
+              <div
+                className="h-2 bg-primary rounded"
+                style={{ width: `${importTotal ? Math.round((importDone / importTotal) * 100) : 0}%` }}
+              />
+            </div>
+            {importFailed > 0 && (
+              <div className="text-xs text-red-600">Fallidos: {importFailed}</div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Email Table */}
       <Card className="shadow-card border-0 overflow-hidden">
@@ -371,6 +512,28 @@ const EmailsView = () => {
                         Marcar
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-2"
+                      onClick={async () => {
+                        const res = await fetch("/api/emails/update", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: email.id, hasTask: true }),
+                        });
+                        const json = await res.json();
+                        if (res.ok) {
+                          toast.success("Convertido en tarea");
+                          window.dispatchEvent(new CustomEvent("emails:refresh"));
+                          refetch();
+                        } else {
+                          toast.error(json.error || "Error al convertir");
+                        }
+                      }}
+                    >
+                      Convertir en tarea
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -383,7 +546,10 @@ const EmailsView = () => {
       <EmailDetailsDialog
         email={selectedEmail}
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setSelectedEmail(null);
+        }}
       />
     </div>
   );
