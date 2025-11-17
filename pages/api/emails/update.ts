@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { getUserFromSession, unauthorizedResponse } from "@/lib/api-auth";
 
 const BodySchema = z.object({
   id: z.string(),
@@ -10,8 +11,6 @@ const BodySchema = z.object({
   taskDescription: z.string().optional(),
 });
 
-const DEMO_USER_EMAIL = "demo@local";
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -19,13 +18,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
 
   try {
-    const { id, hasTask, category, priority, taskDescription } = parsed.data;
+    const user = await getUserFromSession(req, res);
+    if (!user) return unauthorizedResponse(res);
 
-    const user = await prisma.user.upsert({
-      where: { email: DEMO_USER_EMAIL },
-      update: {},
-      create: { email: DEMO_USER_EMAIL, name: "Demo User" },
-    });
+    const { id, hasTask, category, priority, taskDescription } = parsed.data;
 
     const updated = await prisma.email.update({
       where: { id },

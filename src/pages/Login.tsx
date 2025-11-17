@@ -2,11 +2,28 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/router";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const Login = () => {
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
-    console.log("Google login clicked");
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+      await signIn("google", { callbackUrl: "/dashboard" });
+    } catch (error) {
+      console.error("Error during login:", error);
+      toast.error("Error al iniciar sesión. Intenta de nuevo.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoAccess = () => {
+    router.push("/dashboard");
   };
 
   return (
@@ -35,6 +52,7 @@ const Login = () => {
           <div className="space-y-4">
             <Button 
               onClick={handleGoogleLogin}
+              disabled={isLoading}
               className="w-full bg-white hover:bg-gray-50 text-foreground border border-border shadow-sm"
               size="lg"
             >
@@ -56,7 +74,7 @@ const Login = () => {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Continuar con Google
+              {isLoading ? "Conectando..." : "Continuar con Google"}
             </Button>
 
             <div className="relative">
@@ -70,11 +88,14 @@ const Login = () => {
               </div>
             </div>
 
-            <Link href="/dashboard">
-              <Button variant="outline" className="w-full" size="lg">
-                Ver Demo sin registro
-              </Button>
-            </Link>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              size="lg"
+              onClick={handleDemoAccess}
+            >
+              Ver Demo sin registro
+            </Button>
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">

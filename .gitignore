@@ -12,8 +12,14 @@ dist
 dist-ssr
 *.local
 .next
+.env
 .env.local
+.env.production
 coverage
+
+# Prisma
+*.db
+*.db-journal
 
 # Editor directories and files
 .vscode/*
@@ -25,3 +31,7 @@ coverage
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary files
+*.tmp
+package.json.tmp

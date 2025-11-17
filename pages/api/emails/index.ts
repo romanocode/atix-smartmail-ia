@@ -1,20 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
-
-const DEMO_USER_EMAIL = "demo@local";
+import { getUserFromSession, unauthorizedResponse } from "@/lib/api-auth";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const q = (req.query.q as string) || "";
-    const sort = (req.query.sort as string) || "desc"; // by receivedAt
+    const user = await getUserFromSession(req, res);
+    if (!user) return unauthorizedResponse(res);
 
-    const user = await prisma.user.upsert({
-      where: { email: DEMO_USER_EMAIL },
-      update: {},
-      create: { email: DEMO_USER_EMAIL, name: "Demo User" },
-    });
+    const q = (req.query.q as string) || "";
+    const sort = (req.query.sort as string) || "desc";
 
     const where = q
       ? {

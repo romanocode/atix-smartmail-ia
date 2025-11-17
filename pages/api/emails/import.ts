@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { getUserFromSession, unauthorizedResponse } from "@/lib/api-auth";
 
 const EmailItemSchema = z.object({
   id: z.string(),
@@ -14,22 +15,17 @@ const EmailItemSchema = z.object({
 
 const ImportPayloadSchema = z.array(EmailItemSchema).min(1);
 
-const DEMO_USER_EMAIL = "demo@local";
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
+    const user = await getUserFromSession(req, res);
+    if (!user) return unauthorizedResponse(res);
+
     const parsed = ImportPayloadSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid JSON payload", details: parsed.error.flatten() });
     }
-
-    const user = await prisma.user.upsert({
-      where: { email: DEMO_USER_EMAIL },
-      update: {},
-      create: { email: DEMO_USER_EMAIL, name: "Demo User" },
-    });
 
     const data = parsed.data.map((e, idx) => ({
       userId: user.id,
@@ -47,8 +43,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       kanbanOrder: idx,
     }));
 
-    // Avoid duplicates by externalId per user
-    // CreateMany doesn't support skipDuplicates on Postgres, so insert individually with upsert
     let created = 0;
     for (const item of data) {
       await prisma.email.upsert({

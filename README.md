@@ -1,52 +1,102 @@
-# Atix SmartMail IA — Next.js
+# Atix SmartMail IA — Email-to-Kanban
 
-Proyecto elaborado en Next.js 16 (Turbopack), Tailwind CSS, shadcn-ui y Prisma con base de datos Neon PostgreSQL.
+Sistema inteligente que procesa emails con IA, detecta tareas automáticamente y las organiza en un tablero Kanban visual.
 
-## Resumen
+## 🚀 Características
 
-- Dashboard con vistas de Emails y Kanban.
-- Conexión a Neon PostgreSQL mediante Prisma.
-- US-01: importar JSON de emails, validarlos y visualizarlos con búsqueda, orden y detalle.
+- ✅ **Autenticación Google OAuth** (NextAuth.js v5)
+- ✅ **Importación de Emails** desde JSON con validación
+- ✅ **Dashboard Interactivo** con estadísticas en tiempo real
+- ✅ **Vista de Emails** con búsqueda, filtros y ordenamiento
+- ✅ **Tablero Kanban** con drag & drop para organizar tareas
+- ✅ **Base de Datos PostgreSQL** (Neon) con Prisma ORM
+- ⏳ **Procesamiento IA** (próximamente)
 
-## Tecnologías
+## 🛠️ Stack Tecnológico
 
-- Next.js 16 / React 18
-- Tailwind CSS 3 / shadcn-ui
-- Prisma Client / Neon PostgreSQL
-- TanStack Query
-- Zod
+- **Framework**: Next.js 16 (Pages Router + Turbopack)
+- **UI**: React 18, Tailwind CSS, shadcn/ui
+- **Autenticación**: NextAuth.js v5 (Auth.js)
+- **Base de Datos**: PostgreSQL (Neon) + Prisma ORM
+- **Estado**: TanStack Query (React Query)
+- **Validación**: Zod
+- **Drag & Drop**: API nativa HTML5
 
-## Configuración
+## ⚙️ Configuración Rápida
 
-1) Instalar dependencias
+### 1. Instalar dependencias
 
 ```bash
-npm i
+npm install
 ```
 
-2) Variables de entorno
+### 2. Configurar variables de entorno
 
-Crear `.env.local` con `DATABASE_URL` apuntando a Neon (no usar credenciales reales en commits públicos):
+La base de datos ya está configurada. Solo necesitas:
+
+**a) Configurar Google OAuth** (ver `CHECKLIST.md` o `SETUP_OAUTH.md`)
+
+**b) Editar `.env`** con tus credenciales de Google:
 
 ```env
-DATABASE_URL=postgresql://<usuario>:<password>@<host>/<db>?sslmode=require&channel_binding=require
+# Ya configurado ✅
+DATABASE_URL="postgresql://..."
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="..."
+
+# Configura estos ⏳
+GOOGLE_CLIENT_ID="tu-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="tu-client-secret"
 ```
 
-3) Prisma
+### 3. Iniciar el proyecto
 
 ```bash
-npx prisma generate
-npx prisma db push
+npm run dev
 ```
 
-El esquema está en `prisma/schema.prisma` e incluye `User` y `Email` con índices y `@@unique([externalId, userId])`.
+Abre http://localhost:3000
 
-## Scripts
+## 📚 Documentación
 
-- `npm run dev`: servidor de desarrollo.
-- `npm run build`: compilar producción.
-- `npm run start`: servidor en producción.
-- `npm run lint`: ejecutar ESLint.
+- **`CHECKLIST.md`** - Guía rápida de configuración OAuth (⏱️ 5 min)
+- **`SETUP_OAUTH.md`** - Tutorial completo paso a paso
+- **`DATABASE_SETUP.md`** - Configuración de base de datos
+- **`OAUTH_COMPLETADO.md`** - Estado actual del proyecto
+
+## 🗂️ Estructura del Proyecto
+
+```
+├── pages/
+│   ├── api/
+│   │   ├── auth/[...nextauth].ts  # NextAuth handler
+│   │   └── emails/                # APIs protegidas
+│   ├── dashboard/                 # Rutas protegidas
+│   ├── login.tsx                  # Página de login
+│   └── index.tsx                  # Landing page
+├── src/
+│   ├── components/                # Componentes React
+│   ├── pages/                     # Páginas principales
+│   └── lib/                       # Utilidades y config
+├── prisma/
+│   └── schema.prisma              # Modelos de base de datos
+└── middleware.ts                  # Protección de rutas
+```
+
+## 🔐 Seguridad
+
+- Autenticación OAuth 2.0 con Google
+- Sesiones almacenadas en base de datos
+- Middleware de protección de rutas
+- APIs validadas con sesión de usuario
+- Validación de datos con Zod
+
+## 📊 Modelos de Base de Datos
+
+- **User** - Usuarios autenticados
+- **Account** - Cuentas OAuth
+- **Session** - Sesiones activas
+- **Email** - Emails importados por usuario
 
 ## Endpoints
 

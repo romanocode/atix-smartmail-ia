@@ -6,8 +6,10 @@ import { Mail, Clock, CheckCircle2, AlertCircle, RefreshCw, Upload, ArrowRight }
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import EmailDetailsDialog from "@/components/EmailDetailsDialog";
+import { useSession } from "next-auth/react";
 
 const DashboardHome = () => {
+  const { data: session } = useSession();
   const [currentTime] = useState(new Date());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null);
@@ -80,7 +82,7 @@ const DashboardHome = () => {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
         <div>
           <h1 className="text-3xl font-normal text-foreground">
-            {getGreeting()}, Usuario
+            {getGreeting()}, {session?.user?.name?.split(" ")[0] || "Usuario"}
           </h1>
           <p className="text-sm text-muted-foreground mt-2">{formatDate()}</p>
         </div>
