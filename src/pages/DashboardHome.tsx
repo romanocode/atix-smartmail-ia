@@ -2,11 +2,13 @@ import { Button } from "@/components/ui/button";
 import StatsCard from "@/components/StatsCard";
 import QuickAccessCard from "@/components/QuickAccessCard";
 import { Card } from "@/components/ui/card";
-import { Mail, Clock, CheckCircle2, AlertCircle, RefreshCw, Upload, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Mail, Clock, CheckCircle2, AlertCircle, RefreshCw, Upload, ArrowRight, TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import EmailDetailsDialog from "@/components/EmailDetailsDialog";
 import { useSession } from "next-auth/react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const DashboardHome = () => {
   const { data: session } = useSession();
@@ -76,6 +78,14 @@ const DashboardHome = () => {
     }
   };
 
+  const getTrend = (current: number, previous: number) => {
+    if (previous === 0) return { percentage: 0, direction: 'neutral' as const };
+    const percentage = Math.round(((current - previous) / previous) * 100);
+    if (percentage > 0) return { percentage, direction: 'up' as const };
+    if (percentage < 0) return { percentage: Math.abs(percentage), direction: 'down' as const };
+    return { percentage: 0, direction: 'neutral' as const };
+  };
+
   return (
     <div className="space-y-12">
       {/* Header */}
@@ -91,36 +101,16 @@ const DashboardHome = () => {
             <RefreshCw className="h-4 w-4" />
             {isFetching ? "Actualizando" : "Refrescar"}
           </Button>
-          <label htmlFor="file-upload-home">
-            <Button className="gap-2 bg-primary hover:bg-primary/90">
-              <Upload className="h-4 w-4" />
-              Importar Emails
-            </Button>
-            <input
-              id="file-upload-home"
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-          </label>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <StatsCard
           title="Total de Emails"
           value={data?.totalEmails ?? 0}
           description="Todos los emails en el sistema"
           icon={Mail}
-        />
-        <StatsCard
-          title="Emails sin Procesar"
-          value={data?.unprocessedEmails ?? 0}
-          description="Pendientes de IA"
-          icon={Clock}
-          iconColor="text-yellow-500"
         />
         <StatsCard
           title="Tareas Pendientes"
@@ -129,97 +119,142 @@ const DashboardHome = () => {
           icon={AlertCircle}
           iconColor="text-orange-500"
         />
-        <StatsCard
-          title="Tareas Completadas"
-          value={data?.completedTasks ?? 0}
-          description="Cerradas"
-          icon={CheckCircle2}
-          iconColor="text-green-500"
-        />
       </div>
 
-      {/* Quick Access */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <QuickAccessCard
-          title="Ver Todos los Emails"
-          description="Tabla interactiva con búsqueda y filtros"
-          icon={Mail}
-          href="/dashboard/emails"
-        />
-        <QuickAccessCard
-          title="Ir al Kanban"
-          description="Tareas por estado (visual)"
-          icon={CheckCircle2}
-          href="/dashboard/kanban"
-        />
-      </div>
-
-      {/* Recent Emails Section */}
-      <Card className="p-8 border-0">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-medium text-foreground">Emails Recientes</h2>
-          <Button variant="link" className="text-primary" asChild>
-            <a href="/dashboard/emails" className="flex items-center gap-1">
-              Ver todos
-              <ArrowRight className="h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-
-        {Array.isArray(recent) && recent.length > 0 ? (
-          <div className="space-y-3">
-            {recent.map((e: any) => (
+      {/* Panel de Alertas - Emails Alta Prioridad Sin Procesar */}
+      {data?.highPriorityUnprocessed && data.highPriorityUnprocessed.length > 0 && (
+        <Card className="p-6 border-2 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900">
+              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-red-900 dark:text-red-100">Alertas de Alta Prioridad</h2>
+              <p className="text-sm text-red-700 dark:text-red-300">{data.highPriorityUnprocessed.length} email{data.highPriorityUnprocessed.length > 1 ? 's' : ''} sin procesar</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {data.highPriorityUnprocessed.map((email: any) => (
               <div
-                key={e.id}
-                className="flex items-center justify-between p-4 border rounded-md cursor-pointer hover:bg-muted/40"
+                key={email.id}
+                className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-red-200 dark:border-red-800 rounded-lg hover:shadow-md transition-all cursor-pointer"
                 onClick={() => {
                   setSelectedEmail({
-                    id: e.id,
-                    email: e.sender,
-                    subject: e.subject,
-                    received_at: e.receivedAt,
-                    body: e.body,
-                    processed: e.processed,
-                    category: e.category ?? undefined,
-                    priority: e.priority ?? undefined,
-                    hasTask: e.hasTask ?? false,
-                    taskDescription: e.taskDescription ?? undefined,
+                    id: email.id,
+                    email: email.sender,
+                    subject: email.subject,
+                    received_at: email.receivedAt,
+                    category: email.category,
+                    priority: 'alta',
                   });
                   setDialogOpen(true);
                 }}
               >
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-foreground truncate">{e.subject}</div>
-                  <div className="text-xs text-muted-foreground truncate">{e.sender}</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge className="bg-red-500 text-white text-[10px] px-2 py-0.5">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      ALTA
+                    </Badge>
+                    {email.category && (
+                      <Badge variant="outline" className="text-[10px]">{email.category}</Badge>
+                    )}
+                  </div>
+                  <div className="text-sm font-medium text-foreground truncate">{email.subject}</div>
+                  <div className="text-xs text-muted-foreground truncate">{email.sender}</div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(e.receivedAt).toLocaleDateString("es-ES")}
+                  {new Date(email.receivedAt).toLocaleDateString("es-ES")}
                 </div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-16">
-            <div className="mb-4">
-              <Mail className="h-16 w-16 text-muted-foreground mx-auto opacity-50" />
+        </Card>
+      )}
+
+      {/* Grid: Gráfico Kanban (70%) + Quick Access (30%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
+        {/* Gráfico de Barras - Estado del Kanban - 70% */}
+        <div className="lg:col-span-7">
+          <Card className="p-6 border-0 h-full">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-foreground mb-1">Estado del Tablero Kanban</h2>
+              <p className="text-sm text-muted-foreground">Distribución de tareas por columna</p>
             </div>
-            <h3 className="text-lg font-normal text-foreground mb-2">Sin emails recientes</h3>
-            <p className="text-sm text-muted-foreground mb-6">Aún no hay datos disponibles. Importa un archivo JSON para comenzar.</p>
-            <Button className="gap-2" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4" />
-              Importar Archivo JSON
-            </Button>
-            <input
-              ref={fileInputRef}
-              id="file-upload-empty"
-              type="file"
-              accept="application/json,.json"
-              className="sr-only"
-              onChange={handleFileUpload}
-            />
-          </div>
-        )}
-      </Card>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={[
+                  { 
+                    name: 'Por Hacer', 
+                    cantidad: data?.todoTasks ?? 0,
+                    color: '#64748b'
+                  },
+                  { 
+                    name: 'En Progreso', 
+                    cantidad: data?.inProgressTasks ?? 0,
+                    color: '#f59e0b'
+                  },
+                  { 
+                    name: 'Completadas', 
+                    cantidad: data?.completedTasks ?? 0,
+                    color: '#10b981'
+                  },
+                ]}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis type="number" stroke="#6b7280" />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  width={120}
+                  stroke="#6b7280"
+                  style={{ fontSize: '14px', fontWeight: 500 }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                  labelStyle={{ fontWeight: 600, marginBottom: '4px' }}
+                />
+                <Bar 
+                  dataKey="cantidad" 
+                  radius={[0, 8, 8, 0]}
+                  label={{ position: 'right', fill: '#374151', fontWeight: 600 }}
+                >
+                  {[
+                    { name: 'Por Hacer', color: '#64748b' },
+                    { name: 'En Progreso', color: '#f59e0b' },
+                    { name: 'Completadas', color: '#10b981' },
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </div>
+
+        {/* Quick Access Cards - 30% apilados verticalmente */}
+        <div className="lg:col-span-3 flex flex-col gap-8">
+          <QuickAccessCard
+            title="Ver Todos los Emails"
+            description="Tabla interactiva con búsqueda y filtros"
+            icon={Mail}
+            href="/dashboard/emails"
+          />
+          <QuickAccessCard
+            title="Ir al Kanban"
+            description="Tareas por estado (visual)"
+            icon={CheckCircle2}
+            href="/dashboard/kanban"
+          />
+        </div>
+      </div>
 
       <EmailDetailsDialog
         email={selectedEmail}

@@ -2,18 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, CheckCircle2, AlertCircle, Sparkles, Filter } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Sparkles, Mail, Calendar, User, TrendingUp } from "lucide-react";
 import EmailDetailsDialog from "@/components/EmailDetailsDialog";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Toggle } from "@/components/ui/toggle";
 
 interface Email {
   id: string;
@@ -40,6 +33,11 @@ const KanbanView = () => {
   const [filterAlta, setFilterAlta] = useState(true);
   const [filterMedia, setFilterMedia] = useState(true);
   const [filterBaja, setFilterBaja] = useState(true);
+  
+  // Filtros de categoría por columna
+  const [filtersTodo, setFiltersTodo] = useState({ cliente: true, lead: true, interno: true });
+  const [filtersInProgress, setFiltersInProgress] = useState({ cliente: true, lead: true, interno: true });
+  const [filtersDone, setFiltersDone] = useState({ cliente: true, lead: true, interno: true });
 
   const { data, refetch } = useQuery({
     queryKey: ["emails", "kanban"],
@@ -70,21 +68,48 @@ const KanbanView = () => {
   }, [data]);
 
   const getPriorityBadge = (priority?: string) => {
-    const variants: Record<string, { bg: string; icon: React.ReactNode }> = {
+    const variants: Record<string, { bg: string; icon: React.ReactNode; dot: string }> = {
       alta: {
-        bg: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+        bg: "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-200 dark:border-red-800",
         icon: <AlertCircle className="h-3 w-3" />,
+        dot: "bg-red-500",
       },
       media: {
-        bg: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+        bg: "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
         icon: <Clock className="h-3 w-3" />,
+        dot: "bg-amber-500",
       },
       baja: {
-        bg: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+        bg: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800",
         icon: <CheckCircle2 className="h-3 w-3" />,
+        dot: "bg-emerald-500",
       },
     };
     return variants[priority || "baja"];
+  };
+
+  const getCategoryBadge = (category?: string) => {
+    const variants: Record<string, { bg: string; text: string }> = {
+      cliente: { bg: "bg-blue-500/10 border-blue-200 dark:border-blue-800", text: "text-blue-700 dark:text-blue-400" },
+      lead: { bg: "bg-purple-500/10 border-purple-200 dark:border-purple-800", text: "text-purple-700 dark:text-purple-400" },
+      interno: { bg: "bg-slate-500/10 border-slate-200 dark:border-slate-700", text: "text-slate-700 dark:text-slate-400" },
+      spam: { bg: "bg-gray-500/10 border-gray-200 dark:border-gray-700", text: "text-gray-600 dark:text-gray-400" },
+    };
+    return variants[category || "spam"];
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `Hace ${diffMins}m`;
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    if (diffDays < 7) return `Hace ${diffDays}d`;
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 
   const handleCardClick = (email: Email) => {
@@ -92,14 +117,17 @@ const KanbanView = () => {
     setDialogOpen(true);
   };
 
-  // Filtrar emails por prioridad seleccionada
+  // Filtrar emails solo por prioridad (categoría se filtra por columna)
   const filteredTaskEmails = useMemo(() => {
     return emails.filter((e) => {
       if (!e.hasTask) return false;
+      
+      // Filtro de prioridad
       const priority = e.priority || "baja";
       if (priority === "alta" && !filterAlta) return false;
       if (priority === "media" && !filterMedia) return false;
       if (priority === "baja" && !filterBaja) return false;
+      
       return true;
     });
   }, [emails, filterAlta, filterMedia, filterBaja]);
@@ -110,6 +138,21 @@ const KanbanView = () => {
       const s = e.kanbanStatus || "todo";
       grouped[s].push(e);
     });
+    
+    // Aplicar filtros de categoría por columna
+    const applyColumnCategoryFilter = (emails: Email[], filters: { cliente: boolean, lead: boolean, interno: boolean }) => {
+      return emails.filter(e => {
+        const category = e.category || "spam";
+        // Si es spam, siempre lo mostramos (no hay filtro para spam)
+        if (category === "spam") return true;
+        return filters[category as keyof typeof filters];
+      });
+    };
+    
+    grouped.todo = applyColumnCategoryFilter(grouped.todo, filtersTodo);
+    grouped.in_progress = applyColumnCategoryFilter(grouped.in_progress, filtersInProgress);
+    grouped.done = applyColumnCategoryFilter(grouped.done, filtersDone);
+    
     const pRank: Record<string, number> = { alta: 3, media: 2, baja: 1 };
     const cRank: Record<string, number> = { cliente: 4, lead: 3, interno: 2, spam: 1 };
     const cmp = (a: Email, b: Email) => {
@@ -122,7 +165,7 @@ const KanbanView = () => {
     (grouped.in_progress as Email[]).sort(cmp);
     (grouped.done as Email[]).sort(cmp);
     return grouped;
-  }, [filteredTaskEmails]);
+  }, [filteredTaskEmails, filtersTodo, filtersInProgress, filtersDone]);
 
   const persistColumn = async (status: "todo" | "in_progress" | "done", ids: string[]) => {
     const res = await fetch("/api/emails/kanban", {
@@ -219,105 +262,160 @@ const KanbanView = () => {
   const renderKanbanColumn = (
     status: "todo" | "in_progress" | "done",
     title: string,
-    badgeColor: string,
-    emails: Email[]
+    count: number,
+    icon: React.ReactNode,
+    gradient: string,
+    borderColor: string,
+    emails: Email[],
+    categoryFilters: { cliente: boolean, lead: boolean, interno: boolean },
+    setCategoryFilters: React.Dispatch<React.SetStateAction<{ cliente: boolean, lead: boolean, interno: boolean }>>
   ) => {
     const isOver = dragOverColumn === status;
     
     return (
       <div className="flex flex-col h-full">
-        {/* Header de columna */}
-        <Card className="p-4 shadow-sm border-0 bg-gradient-to-br from-muted/50 to-muted/30 mb-4">
+        {/* Header ejecutivo con contador */}
+        <div className={`p-4 rounded-t-xl ${gradient} border-b-2 ${borderColor}`}>
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-base text-foreground flex items-center gap-2">
-              {title}
-            </h3>
-            <Badge className={`${badgeColor} font-mono text-sm px-2.5 py-0.5`}>
-              {emails.length}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                {icon}
+              </div>
+              <h3 className="font-bold text-base text-white">
+                {title}
+              </h3>
+            </div>
+            <div className="text-2xl font-bold text-white/90">
+              {count}
+            </div>
           </div>
-        </Card>
+          
+          {/* Filtros de categoría */}
+          <div className="mt-3 pt-3 border-t border-white/20">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Toggle
+                pressed={categoryFilters.cliente}
+                onPressedChange={(pressed) => setCategoryFilters(prev => ({ ...prev, cliente: pressed }))}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 bg-white/10 border-white/30 text-white hover:bg-white/20 data-[state=on]:bg-white data-[state=on]:text-blue-700 data-[state=on]:border-white"
+              >
+                <User className="h-3 w-3" />
+                Cliente
+              </Toggle>
+              <Toggle
+                pressed={categoryFilters.lead}
+                onPressedChange={(pressed) => setCategoryFilters(prev => ({ ...prev, lead: pressed }))}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 bg-white/10 border-white/30 text-white hover:bg-white/20 data-[state=on]:bg-white data-[state=on]:text-purple-700 data-[state=on]:border-white"
+              >
+                <TrendingUp className="h-3 w-3" />
+                Lead
+              </Toggle>
+              <Toggle
+                pressed={categoryFilters.interno}
+                onPressedChange={(pressed) => setCategoryFilters(prev => ({ ...prev, interno: pressed }))}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 bg-white/10 border-white/30 text-white hover:bg-white/20 data-[state=on]:bg-white data-[state=on]:text-slate-700 data-[state=on]:border-white"
+              >
+                <Mail className="h-3 w-3" />
+                Interno
+              </Toggle>
+            </div>
+          </div>
+        </div>
 
-        {/* Zona de drop */}
+        {/* Zona de drop con diseño premium */}
         <div
           className={`
-            flex-1 min-h-[400px] p-3 rounded-lg border-2 border-dashed transition-all duration-200
+            flex-1 min-h-[600px] p-4 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950
+            transition-all duration-300 rounded-b-xl border-x border-b
             ${isOver 
-              ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 shadow-inner' 
-              : 'border-border bg-muted/20'
+              ? `${borderColor} shadow-lg` 
+              : 'border-gray-200 dark:border-gray-800'
             }
           `}
           onDragOver={(e) => handleDragOver(e, status)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, status)}
         >
-          <div className="space-y-3">
-            {emails.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-                <p className="text-sm">Sin tareas</p>
+          <div className="space-y-3">{emails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50">
+                <Mail className="h-10 w-10 mb-3 opacity-20" />
+                <p className="text-sm font-medium">Sin tareas</p>
+                <p className="text-xs opacity-60 mt-1">Arrastra emails aquí</p>
               </div>
             ) : (
               emails.map((email) => {
                 const priorityInfo = getPriorityBadge(email.priority);
+                const categoryInfo = getCategoryBadge(email.category);
                 const isDragging = draggingId === email.id;
                 
                 return (
                   <Card
                     key={email.id}
                     className={`
-                      group p-4 bg-card border transition-all duration-200 cursor-grab active:cursor-grabbing
-                      hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5
-                      ${isDragging ? 'opacity-40 scale-95 rotate-2' : 'opacity-100'}
+                      group relative p-4 bg-white dark:bg-gray-900 border shadow-sm overflow-hidden
+                      transition-all duration-200 cursor-grab active:cursor-grabbing
+                      hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1
+                      ${isDragging ? 'opacity-40 scale-95 rotate-1' : 'opacity-100'}
                     `}
                     draggable
                     onDragStart={(e) => handleDragStart(e, email.id, email.subject)}
                     onDragEnd={() => setDraggingId(null)}
                     onClick={() => handleCardClick(email)}
                   >
-                    <div className="space-y-3">
-                      {/* Header de card */}
+                    {/* Priority indicator bar */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${priorityInfo.dot}`} />
+                    
+                    <div className="space-y-3 pl-2">
+                      {/* Header con prioridad */}
                       <div className="flex items-start justify-between gap-3">
-                        <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-snug flex-1">
+                        <h4 className="font-semibold text-sm text-foreground line-clamp-2 leading-tight flex-1">
                           {email.subject}
                         </h4>
-                        <Badge className={`${priorityInfo.bg} shrink-0`}>
-                          <span className="flex items-center gap-1">
-                            {priorityInfo.icon}
-                            <span className="text-xs font-medium capitalize">
-                              {email.priority || 'baja'}
-                            </span>
-                          </span>
+                        <Badge className={`${priorityInfo.bg} shrink-0 text-[10px] font-bold`}>
+                          {priorityInfo.icon}
+                          <span className="ml-1 uppercase">{email.priority || 'baja'}</span>
                         </Badge>
                       </div>
 
-                      {/* Info del remitente */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">
-                          {email.email[0].toUpperCase()}
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate flex-1">
-                          {email.email}
-                        </p>
-                      </div>
-
-                      {/* Descripción de tarea */}
+                      {/* Tarea IA */}
                       {email.taskDescription && (
-                        <div className="flex items-start gap-2 bg-muted/50 p-2.5 rounded-md">
-                          <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
-                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-gradient-to-br from-violet-50 to-blue-50 dark:from-violet-950/50 dark:to-blue-950/50 border border-violet-200/50 dark:border-violet-800/50">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+                          <p className="text-xs text-foreground/90 line-clamp-2 leading-relaxed font-medium">
                             {email.taskDescription}
                           </p>
                         </div>
                       )}
 
-                      {/* Categoría badge */}
-                      {email.category && (
+                      {/* Footer metadata */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {email.category}
-                          </Badge>
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+                            {email.email[0].toUpperCase()}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium text-foreground truncate max-w-[120px]">
+                              {email.email.split('@')[0]}
+                            </span>
+                            {email.category && (
+                              <Badge variant="outline" className={`${categoryInfo.bg} ${categoryInfo.text} text-[9px] px-1 py-0 h-4 w-fit`}>
+                                {email.category}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      )}
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span className="text-[10px] font-medium">
+                            {formatDate(email.received_at)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 );
@@ -331,115 +429,87 @@ const KanbanView = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Header con filtros */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header ejecutivo con filtros visibles */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-1">
             Tablero Kanban
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Arrastra las tareas entre columnas para cambiar su estado
+          <p className="text-sm text-muted-foreground">
+            Gestiona tus emails por estado
           </p>
         </div>
 
-        {/* Filtro de prioridad */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filtrar por prioridad
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              Prioridades
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-xs"
-                  onClick={() => {
-                    setFilterAlta(true);
-                    setFilterMedia(true);
-                    setFilterBaja(true);
-                  }}
-                >
-                  Limpiar
-                </Button>
-              )}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={filterAlta}
-              onCheckedChange={setFilterAlta}
-            >
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-3.5 w-3.5 text-red-600" />
-                <span>Alta</span>
-              </div>
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={filterMedia}
-              onCheckedChange={setFilterMedia}
-            >
-              <div className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-yellow-600" />
-                <span>Media</span>
-              </div>
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={filterBaja}
-              onCheckedChange={setFilterBaja}
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                <span>Baja</span>
-              </div>
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Filtros de prioridad visibles */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground mr-2">Filtrar Prioridad:</span>
+          <Toggle
+            pressed={filterAlta}
+            onPressedChange={setFilterAlta}
+            variant="outline"
+            size="sm"
+            className="gap-2 data-[state=on]:bg-red-500/10 data-[state=on]:text-red-700 data-[state=on]:border-red-300"
+          >
+            <AlertCircle className="h-3.5 w-3.5" />
+            Alta
+          </Toggle>
+          <Toggle
+            pressed={filterMedia}
+            onPressedChange={setFilterMedia}
+            variant="outline"
+            size="sm"
+            className="gap-2 data-[state=on]:bg-amber-500/10 data-[state=on]:text-amber-700 data-[state=on]:border-amber-300"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Media
+          </Toggle>
+          <Toggle
+            pressed={filterBaja}
+            onPressedChange={setFilterBaja}
+            variant="outline"
+            size="sm"
+            className="gap-2 data-[state=on]:bg-emerald-500/10 data-[state=on]:text-emerald-700 data-[state=on]:border-emerald-300"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Baja
+          </Toggle>
+        </div>
       </div>
 
-      {/* Estadísticas rápidas */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground mb-1">Total tareas</div>
-          <div className="text-2xl font-bold">{filteredTaskEmails.length}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground mb-1">En progreso</div>
-          <div className="text-2xl font-bold text-yellow-600">{columns.in_progress.length}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground mb-1">Completadas</div>
-          <div className="text-2xl font-bold text-green-600">{columns.done.length}</div>
-        </Card>
-      </div>
-
-      {/* Board Kanban */}
-      <div className="grid md:grid-cols-3 gap-6">
+      {/* Board Kanban - 3 columnas diferenciadas */}
+      <div className="grid grid-cols-3 gap-6">
         {renderKanbanColumn(
           "todo",
-          "📋 Por hacer",
-          "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-          columns.todo
+          "Por Hacer",
+          columns.todo.length,
+          <Clock className="h-5 w-5 text-white" />,
+          "bg-gradient-to-br from-slate-600 to-slate-700",
+          "border-slate-600",
+          columns.todo,
+          filtersTodo,
+          setFiltersTodo
         )}
         {renderKanbanColumn(
           "in_progress",
-          "⏳ En progreso",
-          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-          columns.in_progress
+          "En Progreso",
+          columns.in_progress.length,
+          <TrendingUp className="h-5 w-5 text-white" />,
+          "bg-gradient-to-br from-amber-500 to-amber-600",
+          "border-amber-500",
+          columns.in_progress,
+          filtersInProgress,
+          setFiltersInProgress
         )}
         {renderKanbanColumn(
           "done",
-          "✅ Completado",
-          "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-          columns.done
+          "Completado",
+          columns.done.length,
+          <CheckCircle2 className="h-5 w-5 text-white" />,
+          "bg-gradient-to-br from-emerald-500 to-emerald-600",
+          "border-emerald-500",
+          columns.done,
+          filtersDone,
+          setFiltersDone
         )}
       </div>
 

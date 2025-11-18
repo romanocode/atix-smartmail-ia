@@ -19,6 +19,11 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Mail,
+  Tag,
+  Calendar,
+  FileText,
+  Check,
 } from "lucide-react";
 import EmailDetailsDialog from "@/components/EmailDetailsDialog";
 import { useQuery } from "@tanstack/react-query";
@@ -371,9 +376,6 @@ const EmailsView = () => {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" className="gap-2" onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}>
-              Ordenar por fecha ({sortOrder})
-            </Button>
             <Button
               className="gap-2 bg-primary hover:bg-primary/90"
               onClick={() => fileInputRef.current?.click()}
@@ -391,40 +393,12 @@ const EmailsView = () => {
               onChange={handleFileUpload}
             />
             <Button
-              variant="outline"
-              className="gap-2"
-              disabled={selectedIds.size === 0}
-              onClick={() => {
-                const selected = emails.filter((e) => selectedIds.has(e.id));
-                const blob = new Blob([JSON.stringify(selected, null, 2)], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `emails-seleccion-${Date.now()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                toast.success(`Exportados ${selected.length} emails`);
-              }}
-            >
-              Exportar selección
-            </Button>
-            <Button
               variant="default"
               className="gap-2"
               disabled={selectedIds.size === 0}
               onClick={() => markProcessed(true)}
             >
               Marcar procesados ({selectedIds.size})
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              disabled={selectedIds.size === 0}
-              onClick={() => markProcessed(false)}
-            >
-              Desmarcar
             </Button>
             <Button 
               className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
@@ -458,120 +432,173 @@ const EmailsView = () => {
       )}
 
       {/* Email Table */}
-      <Card className="shadow-card border-0 overflow-hidden">
+      <Card className="shadow-card border-0">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow className="bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-900 dark:to-gray-900 border-b-2 border-slate-200 dark:border-slate-700">
               <TableHead className="w-12">
                 <input
                   type="checkbox"
-                  className="rounded"
+                  className="rounded border-2 border-slate-300 dark:border-slate-600"
                   onChange={(e) => selectAll(e.currentTarget.checked)}
                 />
               </TableHead>
-              <TableHead>Remitente</TableHead>
-              <TableHead>Asunto</TableHead>
-              <TableHead>Procesado</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Prioridad</TableHead>
-              <TableHead>Tarea</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Acciones</TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Remitente
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Asunto
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4" />
+                  Procesado
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Categoría
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Prioridad
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Tarea IA
+                </div>
+              </TableHead>
+              <TableHead className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Fecha
+                </div>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredEmails.map((email) => {
+            {filteredEmails.map((email, index) => {
               const priorityInfo = getPriorityBadge(email.priority);
+              
+              // Determinar el color del borde según prioridad
+              let borderColor = '#94a3b8'; // slate-400 default
+              if (email.priority === 'alta') {
+                borderColor = '#ef4444'; // red-500
+              } else if (email.priority === 'media') {
+                borderColor = '#f59e0b'; // amber-500
+              } else if (email.priority === 'baja') {
+                borderColor = '#10b981'; // emerald-500
+              }
+              
               return (
                 <TableRow
                   key={email.id}
-                  className="hover:bg-muted/50 cursor-pointer"
+                  style={{ borderLeft: `4px solid ${borderColor}` }}
+                  className={`
+                    relative transition-all duration-200 cursor-pointer
+                    ${index % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-slate-50/50 dark:bg-slate-900/50'}
+                    ${email.processed ? 'bg-emerald-50/30 dark:bg-emerald-950/20' : ''}
+                    hover:bg-slate-100 dark:hover:bg-slate-800
+                    hover:shadow-md hover:scale-[1.01]
+                  `}
                   onClick={() => handleRowClick(email)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
-                      className="rounded"
+                      className="rounded border-2 border-slate-300 dark:border-slate-600"
                       checked={selectedIds.has(email.id)}
                       onChange={(e) => toggleSelect(email.id, e.currentTarget.checked)}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{email.email}</TableCell>
-                  <TableCell className="max-w-md truncate">{email.subject}</TableCell>
+                  <TableCell className="font-medium text-slate-900 dark:text-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                        {email.email[0].toUpperCase()}
+                      </div>
+                      <span className="truncate max-w-[200px]">{email.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-md">
+                    <div className="truncate font-medium text-slate-800 dark:text-slate-200" title={email.subject}>
+                      {email.subject}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {email.processed ? (
-                      <Badge className="bg-green-100 text-green-800">Sí</Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                        <span className="text-emerald-700 dark:text-emerald-400 font-medium text-sm">Procesado</span>
+                      </div>
                     ) : (
-                      <span className="text-muted-foreground text-sm">No</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600"></div>
+                        <span className="text-slate-500 dark:text-slate-400 text-sm">Pendiente</span>
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>
-                    {email.category && (
-                      <Badge className={getCategoryBadge(email.category)}>
+                    {email.category ? (
+                      <Badge variant="outline" className={`${getCategoryBadge(email.category)} font-semibold text-xs px-2.5 py-1`}>
                         {email.category}
                       </Badge>
+                    ) : (
+                      <span className="text-slate-400 text-sm">-</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {email.priority && (
-                      <Badge className={priorityInfo.bg}>
-                        <span className="flex items-center gap-1">
+                    {email.priority ? (
+                      <Badge className={`${priorityInfo.bg} font-semibold text-xs px-2.5 py-1`}>
+                        <span className="flex items-center gap-1.5">
                           {priorityInfo.icon}
-                          {email.priority}
+                          <span className="uppercase">{email.priority}</span>
                         </span>
                       </Badge>
+                    ) : (
+                      <span className="text-slate-400 text-sm">-</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {email.hasTask ? (
-                      <Badge className="bg-primary/10 text-primary">Sí</Badge>
+                    {email.hasTask && email.taskDescription ? (
+                      <div 
+                        className="flex items-center gap-2 cursor-help" 
+                        title={email.taskDescription}
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center shadow-sm">
+                          <Sparkles className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="text-violet-700 dark:text-violet-400 font-medium text-sm">Tarea IA</span>
+                      </div>
+                    ) : email.hasTask ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-400 to-blue-500 flex items-center justify-center shadow-sm">
+                          <Sparkles className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="text-violet-600 dark:text-violet-400 font-medium text-sm">Sí</span>
+                      </div>
                     ) : (
-                      <span className="text-muted-foreground text-sm">No</span>
+                      <span className="text-slate-400 text-sm">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(email.received_at).toLocaleDateString("es-ES")}
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {email.processed ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => markOneProcessed(email.id, false)}
-                      >
-                        Desmarcar
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => markOneProcessed(email.id, true)}
-                      >
-                        Marcar
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="ml-2"
-                      onClick={async () => {
-                        const res = await fetch("/api/emails/update", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ id: email.id, hasTask: true }),
-                        });
-                        const json = await res.json();
-                        if (res.ok) {
-                          toast.success("Convertido en tarea");
-                          window.dispatchEvent(new CustomEvent("emails:refresh"));
-                          refetch();
-                        } else {
-                          toast.error(json.error || "Error al convertir");
-                        }
-                      }}
-                    >
-                      Convertir en tarea
-                    </Button>
+                  <TableCell className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    {new Date(email.received_at).toLocaleDateString("es-ES", {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
                   </TableCell>
                 </TableRow>
               );
