@@ -20,17 +20,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { status, ids } = parsed.data;
 
+    // Validar que los emails pertenecen al usuario
+    const emailsToUpdate = await prisma.email.findMany({
+      where: {
+        userId: user.id,
+        id: { in: ids },
+      },
+      select: { id: true },
+    });
+
+    if (emailsToUpdate.length !== ids.length) {
+      return res.status(403).json({ 
+        error: "Algunos emails no pertenecen a tu cuenta",
+        found: emailsToUpdate.length,
+        requested: ids.length,
+      });
+    }
+
+    // Actualizar en transacción
     await prisma.$transaction(
       ids.map((id, index) =>
         prisma.email.update({
           where: { id },
-          data: { userId: user.id, kanbanStatus: status, kanbanOrder: index },
+          data: { 
+            kanbanStatus: status, 
+            kanbanOrder: index,
+            updatedAt: new Date(),
+          },
         })
       )
     );
 
     return res.status(200).json({ ok: true, count: ids.length });
   } catch (err) {
-    return res.status(500).json({ error: "Server error", details: String(err) });
+    console.error("[API /emails/kanban] Error:", err);
+    return res.status(500).json({ 
+      error: "Error al actualizar Kanban", 
+      details: err instanceof Error ? err.message : String(err) 
+    });
   }
 }

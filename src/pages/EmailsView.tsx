@@ -57,6 +57,7 @@ const EmailsView = () => {
   const [taskOnly, setTaskOnly] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [prioritySort, setPrioritySort] = useState<"none" | "priority" | "category_priority">("none");
+  const [isProcessingIA, setIsProcessingIA] = useState(false);
 
   const { data, refetch } = useQuery({
     queryKey: ["emails", searchTerm, sortOrder],
@@ -273,6 +274,39 @@ const EmailsView = () => {
     }
   };
 
+  const processWithIA = async () => {
+    if (selectedIds.size === 0) {
+      toast.error("Selecciona al menos un email para procesar");
+      return;
+    }
+
+    const ids = Array.from(selectedIds);
+    setIsProcessingIA(true);
+
+    try {
+      const res = await fetch("/api/emails/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        toast.success(`✨ Procesados ${json.processed} de ${json.total} emails con IA`);
+        setSelectedIds(new Set());
+        refetch();
+      } else {
+        toast.error(json.error || "Error al procesar con IA");
+      }
+    } catch (error) {
+      toast.error("Error de conexión al procesar con IA");
+      console.error(error);
+    } finally {
+      setIsProcessingIA(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -392,9 +426,13 @@ const EmailsView = () => {
             >
               Desmarcar
             </Button>
-            <Button className="gap-2 bg-purple text-white hover:bg-purple/90">
+            <Button 
+              className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+              disabled={selectedIds.size === 0 || isProcessingIA}
+              onClick={processWithIA}
+            >
               <Sparkles className="h-4 w-4" />
-              Procesar con IA
+              {isProcessingIA ? `Procesando... (${selectedIds.size})` : `Procesar con IA (${selectedIds.size})`}
             </Button>
           </div>
         </div>

@@ -9,15 +9,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const user = await getUserFromSession(req, res);
     if (!user) return unauthorizedResponse(res);
 
-    const [totalEmails, unprocessedEmails, pendingTasks, completedTasks] = await Promise.all([
+    const [
+      totalEmails,
+      unprocessedEmails,
+      pendingTasks,
+      completedTasks,
+      byCategory,
+      byPriority,
+    ] = await Promise.all([
       prisma.email.count({ where: { userId: user.id } }),
       prisma.email.count({ where: { userId: user.id, processed: false } }),
-      prisma.email.count({ where: { userId: user.id, hasTask: true, kanbanStatus: { in: ["todo", "in_progress"] } } }),
-      prisma.email.count({ where: { userId: user.id, hasTask: true, kanbanStatus: "done" } }),
+      prisma.email.count({ 
+        where: { 
+          userId: user.id, 
+          hasTask: true, 
+          kanbanStatus: { in: ["todo", "in_progress"] } 
+        } 
+      }),
+      prisma.email.count({ 
+        where: { 
+          userId: user.id, 
+          hasTask: true, 
+          kanbanStatus: "done" 
+        } 
+      }),
+      prisma.email.groupBy({
+        by: ["category"],
+        where: { userId: user.id, processed: true },
+        _count: true,
+      }),
+      prisma.email.groupBy({
+        by: ["priority"],
+        where: { userId: user.id, processed: true },
+        _count: true,
+      }),
     ]);
 
-    return res.status(200).json({ ok: true, stats: { totalEmails, unprocessedEmails, pendingTasks, completedTasks } });
+    const categoryStats = {
+      cliente: 0,
+      lead: 0,
+      interno: 0,
+      spam: 0,
+    };
+    byCategory.forEach((item) => {
+      if (item.category) categoryStats[item.category as keyof typeof categoryStats] = item._count;
+    });
+
+    const priorityStats = {
+      alta: 0,
+      media: 0,
+      baja: 0,
+    };
+    byPriority.forEach((item) => {
+      if (item.priority) priorityStats[item.priority as keyof typeof priorityStats] = item._count;
+    });
+
+    return res.status(200).json({ 
+      ok: true, 
+      stats: { 
+        totalEmails, 
+        unprocessedEmails, 
+        pendingTasks, 
+        completedTasks,
+        byCategory: categoryStats,
+        byPriority: priorityStats,
+      } 
+    });
   } catch (err) {
-    return res.status(500).json({ error: "Server error", details: String(err) });
+    console.error("[API /emails/stats] Error:", err);
+    return res.status(500).json({ 
+      error: "Error al obtener estadísticas", 
+      details: err instanceof Error ? err.message : String(err) 
+    });
   }
 }
