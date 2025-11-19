@@ -86,6 +86,11 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  @layer base {
+  h1 { @apply leading-[2]; }
+  /* opcional: h2, h3 según tu diseño */
+}
+
   body {
     @apply bg-background text-foreground font-sans;
   }

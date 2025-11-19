@@ -1,4 +1,5 @@
 import Navbar from "@/components/Navbar";
+import { Keyword } from "@/components/Keyword";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,20 +22,22 @@ const Home = () => {
 
       <section className="pt-28 pb-16 px-6 bg-white">
         <div className="container mx-auto grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <h1 className="text-4xl md:text-5xl font-normal text-foreground">
-              Convierte tus emails en un tablero Kanban inteligente
+          <div className="space-y-8 md:space-y-10">
+            <h1 className="text-4xl md:text-5xl font-normal text-foreground flex flex-col gap-3 md:gap-4 lg:gap-6 leading-none">
+              <span className="block">Atix‑SmartMail transforma</span>
+              <span className="block">tu bandeja en</span>
+              <span className="block"><Keyword tight>kanban inteligente</Keyword></span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-xl">
-              Email-to-Kanban analiza tus correos con IA, detecta tareas automáticamente y organiza todo en un Kanban visual y fácil de usar. Ahorra horas cada semana y evita perder oportunidades importantes.
+              Inicia sesión con <Keyword tight>Google</Keyword>, importa correos desde tu cuenta de <Keyword tight>Gmail</Keyword> o sube un archivo <Keyword tight>JSON</Keyword>. Nuestra IA filtra, clasifica y prioriza tus emails para convertirlos en tareas claras.
             </p>
             <div className="flex items-center gap-4">
               <Link href="/login">
                 <Button size="lg" className="rounded-full bg-primary hover:bg-primary/90 text-white px-8">
-                  Comenzar ahora
+                  Iniciar con Google
                 </Button>
               </Link>
-              <span className="text-sm text-muted-foreground">Login rápido con Google.</span>
+              <span className="text-sm text-muted-foreground">Importa desde Gmail o JSON y procesa con IA.</span>
             </div>
           </div>
           <div className="flex items-center justify-center">
@@ -56,11 +59,11 @@ const Home = () => {
 
       <section className="py-20 px-6 bg-primary">
         <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl md:text-4xl font-normal text-white mb-4">
-            Tu bandeja de entrada te está costando tiempo y clientes
+          <h2 className="text-3xl md:text-4xl font-normal text-white mb-8">
+            Tu bandeja te está costando tiempo y oportunidades
           </h2>
           <p className="text-white/90 mb-8">
-            Los ejecutivos comerciales reciben entre 50 y 100 correos diarios. Entre spam, solicitudes urgentes y tareas ocultas, lo importante se pierde.
+            Entre spam, solicitudes urgentes y tareas ocultas, lo importante se pierde. Atix‑SmartMail utiliza IA para separar ruido de acción y enfocarte en lo que genera valor.
           </p>
           <ul className="grid md:grid-cols-2 gap-4">
             <li className="flex items-start gap-3">
@@ -86,8 +89,8 @@ const Home = () => {
 
       <section className="py-20 px-6 bg-white">
         <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-4">El poder de la IA para ordenar tu día</h2>
-          <p className="text-muted-foreground mb-10">Sube tus emails en formato JSON, procesamos todo con inteligencia artificial y generamos las tareas importantes directamente en tu Kanban personal.</p>
+          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-8">IA que filtra, clasifica y prioriza</h2>
+          <p className="text-muted-foreground mb-10">Conecta tu <Keyword>Gmail</Keyword> o sube un <Keyword>JSON</Keyword>. La IA identifica remitente, asunto y urgencia, detecta si hay tarea y la convierte en elementos accionables dentro de tu <Keyword>Kanban</Keyword>.</p>
           <div className="grid md:grid-cols-3 gap-6">
             <Card className="p-6 border shadow-sm">
               <div className="text-primary mb-3"><Sparkles className="h-6 w-6" /></div>
@@ -110,13 +113,13 @@ const Home = () => {
 
       <section className="py-20 px-6 bg-primary/5">
         <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-6">Así funciona Email-to-Kanban</h2>
+          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-10">Así funciona <Keyword>Atix‑SmartMail</Keyword></h2>
           <div className="grid md:grid-cols-2 gap-8">
             <ul className="space-y-3">
               <li>Inicia sesión con tu cuenta de Google</li>
-              <li>Importa tu archivo JSON con emails</li>
-              <li>Selecciona correos y procesa con IA</li>
-              <li>Revisa las tareas detectadas en el Kanban</li>
+              <li>Importa correos directamente desde Gmail o sube un JSON</li>
+              <li>Procesa con IA para filtrar, clasificar y priorizar</li>
+              <li>Convierte correos en tareas dentro del Kanban</li>
               <li>Arrastra, organiza y gestiona tu día</li>
             </ul>
             <div className="flex items-center justify-center">
@@ -134,13 +137,13 @@ const Home = () => {
               </div>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-8">20 correos procesados en menos de 8 minutos.</p>
+          <p className="text-sm text-muted-foreground mt-8">Conexión directa a Gmail y procesamiento IA en minutos.</p>
         </div>
       </section>
 
       <section className="py-20 px-6 bg-white">
         <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-10">Convierte correos en resultados</h2>
+          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-12">Convierte correos en <Keyword>resultados</Keyword></h2>
           <div className="grid md:grid-cols-4 gap-6">
             <Card className="p-6 border border-border shadow-sm">
               <h3 className="font-medium mb-2">Productividad inmediata</h3>
@@ -164,14 +167,14 @@ const Home = () => {
 
       <section className="py-20 px-6 bg-white">
         <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-4">Accede de forma segura con tu cuenta de Google</h2>
-          <p className="text-muted-foreground max-w-3xl">Email-to-Kanban utiliza autenticación Google OAuth para garantizar seguridad y privacidad. Tu sesión es privada y solo tú puedes ver tus datos.</p>
+          <h2 className="text-3xl md:text-4xl font-normal text-foreground mb-8">Accede de forma segura con tu cuenta de <Keyword>Google</Keyword></h2>
+          <p className="text-muted-foreground max-w-3xl">Atix‑SmartMail utiliza autenticación Google OAuth para garantizar seguridad y privacidad. Tu sesión es privada y solo tú puedes ver tus datos.</p>
         </div>
       </section>
 
       <section className="py-20 px-6 bg-foreground" id="docs">
         <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl md:text-4xl font-normal text-white mb-4">¿Estás desplegando tu Atix? Descarga su documentación</h2>
+          <h2 className="text-3xl md:text-4xl font-normal text-white mb-8">¿Estás desplegando <Keyword>Atix‑SmartMail</Keyword>? Descarga la documentación</h2>
           <p className="text-white/80 mb-6">Encuentra el formato JSON esperado, ejemplos de procesamiento, explicación del flujo y detalles del MVP.</p>
           <Link href="/dashboard">
             <Button className="rounded-full bg-primary hover:bg-primary/90 text-white">Ver documentación</Button>

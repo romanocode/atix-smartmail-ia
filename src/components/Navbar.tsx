@@ -25,20 +25,7 @@ const Navbar = () => {
             />
           </Link>
 
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/" className="text-sm font-normal text-foreground hover:text-primary transition-colors">
-              Nosotros
-            </Link>
-            <Link href="/" className="text-sm font-normal text-foreground hover:text-primary transition-colors">
-              Tarifas
-            </Link>
-            <Link href="/" className="text-sm font-normal text-foreground hover:text-primary transition-colors">
-              Contacto
-            </Link>
-            <Link href="/" className="text-sm font-normal text-foreground hover:text-primary transition-colors">
-              Únete ahora
-            </Link>
-          </div>
+        
 
           <div className="flex items-center gap-3">
             <Link href="/login">
