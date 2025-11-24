@@ -176,9 +176,9 @@ const Home = () => {
         <div className="container mx-auto max-w-5xl">
           <h2 className="text-3xl md:text-4xl font-normal text-white mb-8">¿Estás desplegando <Keyword>Atix‑SmartMail</Keyword>? Descarga la documentación</h2>
           <p className="text-white/80 mb-6">Encuentra el formato JSON esperado, ejemplos de procesamiento, explicación del flujo y detalles del MVP.</p>
-          <Link href="/dashboard">
+          <a href="https://github.com/romanocode/atix-smartmail-ia" target="_blank" rel="noopener noreferrer">
             <Button className="rounded-full bg-primary hover:bg-primary/90 text-white">Ver documentación</Button>
-          </Link>
+          </a>
         </div>
       </section>
 

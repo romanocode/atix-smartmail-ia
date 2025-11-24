@@ -3,12 +3,11 @@ import { Card } from "@/components/ui/card";
 import { Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/router";
+ 
 import { useState } from "react";
 import { toast } from "sonner";
 
 const Login = () => {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -22,9 +21,7 @@ const Login = () => {
     }
   };
 
-  const handleDemoAccess = () => {
-    router.push("/dashboard");
-  };
+ 
 
   return (
     <div className="min-h-screen bg-gradient-purple flex items-center justify-center p-6">
@@ -77,25 +74,7 @@ const Login = () => {
               {isLoading ? "Conectando..." : "Continuar con Google"}
             </Button>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  o también puedes
-                </span>
-              </div>
-            </div>
-
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              size="lg"
-              onClick={handleDemoAccess}
-            >
-              Ver Demo sin registro
-            </Button>
+ 
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
