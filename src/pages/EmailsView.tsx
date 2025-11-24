@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,9 @@ import {
   Calendar,
   FileText,
   Check,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import EmailDetailsDialog from "@/components/EmailDetailsDialog";
 import { useQuery } from "@tanstack/react-query";
@@ -47,6 +51,10 @@ interface Email {
 
 const EmailsView = () => {
   const [emails, setEmails] = useState<Email[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [limit] = useState(50);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -55,6 +63,7 @@ const EmailsView = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [importTotal, setImportTotal] = useState(0);
   const [importDone, setImportDone] = useState(0);
   const [importFailed, setImportFailed] = useState(0);
@@ -65,18 +74,23 @@ const EmailsView = () => {
   const [isProcessingIA, setIsProcessingIA] = useState(false);
 
   const { data, refetch } = useQuery({
-    queryKey: ["emails", searchTerm, sortOrder],
+    queryKey: ["emails", searchTerm, sortOrder, currentPage, limit],
     queryFn: async () => {
-      const params = new URLSearchParams({ q: searchTerm, sort: sortOrder });
+      const params = new URLSearchParams({ 
+        q: searchTerm, 
+        sort: sortOrder,
+        page: currentPage.toString(),
+        limit: limit.toString(),
+      });
       const res = await fetch(`/api/emails?${params.toString()}`);
       const json = await res.json();
-      return json.emails as any[];
+      return json;
     },
   });
 
   useEffect(() => {
-    if (Array.isArray(data)) {
-      const mapped = data.map((e: any) => ({
+    if (data) {
+      const mapped = (data.emails || []).map((e: any) => ({
         id: e.id,
         email: e.sender,
         subject: e.subject,
@@ -90,6 +104,11 @@ const EmailsView = () => {
       }));
       setEmails(mapped);
       setSelectedIds(new Set());
+      
+      if (data.pagination) {
+        setTotalPages(data.pagination.totalPages || 1);
+        setTotal(data.pagination.total || 0);
+      }
     }
   }, [data]);
 
@@ -98,6 +117,8 @@ const EmailsView = () => {
     window.addEventListener("emails:refresh", handler as EventListener);
     return () => window.removeEventListener("emails:refresh", handler as EventListener);
   }, [refetch]);
+
+
 
   const ImportSchema = z.array(
     z.object({
@@ -162,7 +183,6 @@ const EmailsView = () => {
       setImportDone(Math.min(i + chunk.length, items.length));
     }
 
-    setIsImporting(false);
     setImportFailed(failedCount);
     if (failedCount > 0) {
       toast.error(`Fallidos ${failedCount}. Importados ${importedCount}.`);
@@ -170,8 +190,11 @@ const EmailsView = () => {
       toast.success(`Importados ${importedCount} emails`);
     }
     setSelectedIds(new Set());
-    refetch();
+    await refetch();
+    setIsImporting(false);
   };
+
+
 
   const getCategoryBadge = (category?: string) => {
     const variants: Record<string, string> = {
@@ -245,18 +268,14 @@ const EmailsView = () => {
   const markProcessed = async (processed: boolean) => {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
-    const res = await fetch("/api/emails/process", {
+    const res = await fetch("/api/emails/mark-read", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids, processed }),
     });
     const json = await res.json();
     if (res.ok) {
-      toast.success(
-        processed
-          ? `Marcados como procesados (${json.count})`
-          : `Desmarcados (${json.count})`
-      );
+      toast.success(json.message || `Actualizado ${json.count} email(s)`);
       setSelectedIds(new Set());
       refetch();
     } else {
@@ -312,8 +331,55 @@ const EmailsView = () => {
     }
   };
 
+  const deleteEmails = async () => {
+    if (selectedIds.size === 0) {
+      toast.error("Selecciona al menos un email para eliminar");
+      return;
+    }
+
+    if (!confirm(`¿Eliminar ${selectedIds.size} email(s)? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    const ids = Array.from(selectedIds);
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch("/api/emails/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        toast.success(json.message || `${json.deleted} email(s) eliminado(s)`);
+        setSelectedIds(new Set());
+        await refetch();
+      } else {
+        toast.error(json.error || "Error al eliminar emails");
+      }
+    } catch (error) {
+      toast.error("Error de conexión al eliminar emails");
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const showLoading = isImporting || isDeleting;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {showLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col items-center gap-4 p-8 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+            <Loader2 className="h-10 w-10 text-primary animate-spin" />
+            <span className="text-lg font-semibold text-primary">Procesando...</span>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-2">Emails</h1>
@@ -384,6 +450,7 @@ const EmailsView = () => {
               <Upload className="h-4 w-4" />
               {isImporting ? `Importando (${importDone}/${importTotal})` : "Importar JSON"}
             </Button>
+
             <input
               ref={fileInputRef}
               id="file-upload-emails"
@@ -392,14 +459,6 @@ const EmailsView = () => {
               className="sr-only"
               onChange={handleFileUpload}
             />
-            <Button
-              variant="default"
-              className="gap-2"
-              disabled={selectedIds.size === 0}
-              onClick={() => markProcessed(true)}
-            >
-              Marcar procesados ({selectedIds.size})
-            </Button>
             <Button 
               className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
               disabled={selectedIds.size === 0 || isProcessingIA}
@@ -407,6 +466,15 @@ const EmailsView = () => {
             >
               <Sparkles className="h-4 w-4" />
               {isProcessingIA ? `Procesando... (${selectedIds.size})` : `Procesar con IA (${selectedIds.size})`}
+            </Button>
+            <Button 
+              variant="destructive"
+              className="gap-2"
+              disabled={selectedIds.size === 0}
+              onClick={deleteEmails}
+            >
+              <Trash2 className="h-4 w-4" />
+              Eliminar ({selectedIds.size})
             </Button>
           </div>
         </div>
@@ -606,6 +674,40 @@ const EmailsView = () => {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <Card className="p-4 shadow-card border-0">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Mostrando {emails.length} de {total} emails
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <div className="text-sm font-medium">
+                Página {currentPage} de {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Email Details Dialog */}
       <EmailDetailsDialog

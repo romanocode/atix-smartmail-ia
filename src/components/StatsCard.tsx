@@ -11,7 +11,7 @@ interface StatsCardProps {
 
 const StatsCard = ({ title, value, description, icon: Icon, iconColor = "text-muted-foreground" }: StatsCardProps) => {
   return (
-    <Card className="p-8 border-0">
+    <Card className="p-8 border-0" style={{ backgroundColor: '#c3c1ff' }}>
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-normal text-muted-foreground">

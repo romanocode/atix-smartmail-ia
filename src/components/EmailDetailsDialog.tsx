@@ -8,11 +8,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Calendar, User, Tag, Flag } from "lucide-react";
+import { Calendar, User, Tag, Flag, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface Email {
   id: string;
@@ -34,15 +34,28 @@ interface EmailDetailsDialogProps {
 }
 
 const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogProps) => {
-  const [category, setCategory] = useState<string | undefined>(undefined);
-  const [priority, setPriority] = useState<string | undefined>(undefined);
+  console.log('EmailDetailsDialog render', { open, email });
+    // Bloquear scroll del body y forzar scroll al tope cuando el modal está abierto
+    React.useEffect(() => {
+      if (open) {
+        document.body.style.overflow = 'hidden';
+        window.scrollTo(0, 0);
+      } else {
+        document.body.style.overflow = '';
+      }
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }, [open]);
+  const [category, setCategory] = useState<string>(email?.category || "cliente");
+  const [priority, setPriority] = useState<string>(email?.priority || "baja");
   const [taskDescription, setTaskDescription] = useState<string>("");
   const [hasTask, setHasTask] = useState<boolean>(false);
 
   useEffect(() => {
     if (email) {
-      setCategory(email.category);
-      setPriority(email.priority);
+      setCategory(email.category || "cliente");
+      setPriority(email.priority || "baja");
       setTaskDescription(email.taskDescription || "");
       setHasTask(!!email.hasTask);
     }
@@ -67,6 +80,7 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
   };
 
   const saveMetadata = async () => {
+    if (window.setKanbanLoading) window.setKanbanLoading(true);
     const res = await fetch("/api/emails/update", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,11 +89,50 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
     const json = await res.json();
     if (res.ok) {
       toast.success("Cambios guardados");
+      if (window.setEmails) {
+        window.setEmails((prev) => prev.map(e =>
+          e.id === email.id
+            ? { ...e, hasTask, category, priority, taskDescription }
+            : e
+        ));
+      }
       window.dispatchEvent(new CustomEvent("emails:refresh"));
       onOpenChange(false);
     } else {
       toast.error(json.error || "Error al guardar");
     }
+    if (window.setKanbanLoading) window.setKanbanLoading(false);
+  };
+
+  const deleteEmail = async () => {
+    if (!confirm("¿Eliminar este email? Esta acción no se puede deshacer.")) {
+      return;
+    }
+    if (window.setKanbanLoading) window.setKanbanLoading(true);
+    try {
+      const res = await fetch("/api/emails/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: email.id }),
+      });
+
+      const json = await res.json();
+
+      if (res.ok) {
+        toast.success(json.message || "Email eliminado correctamente");
+        if (window.setEmails) {
+          window.setEmails((prev) => prev.filter(e => e.id !== email.id));
+        }
+        window.dispatchEvent(new CustomEvent("emails:refresh"));
+        onOpenChange(false);
+      } else {
+        toast.error(json.error || "Error al eliminar email");
+      }
+    } catch (error) {
+      toast.error("Error de conexión al eliminar email");
+      console.error(error);
+    }
+    if (window.setKanbanLoading) window.setKanbanLoading(false);
   };
 
   const getCategoryBadge = (category?: string) => {
@@ -103,7 +156,7 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-lg bg-white dark:bg-slate-900 border-4 border-red-500 z-[9999]">
         <DialogHeader>
           <DialogTitle className="text-2xl">{email.subject}</DialogTitle>
           <DialogDescription>Detalles completos del email</DialogDescription>
@@ -156,26 +209,28 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs text-muted-foreground">Categoría</label>
-                <Select value={category || ""} onValueChange={(v) => setCategory(v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cliente">cliente</SelectItem>
-                    <SelectItem value="lead">lead</SelectItem>
-                    <SelectItem value="interno">interno</SelectItem>
-                    <SelectItem value="spam">spam</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                >
+                  <option value="cliente">cliente</option>
+                  <option value="lead">lead</option>
+                  <option value="interno">interno</option>
+                  <option value="spam">spam</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Prioridad</label>
-                <Select value={priority || ""} onValueChange={(v) => setPriority(v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="alta">alta</SelectItem>
-                    <SelectItem value="media">media</SelectItem>
-                    <SelectItem value="baja">baja</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={priority}
+                  onChange={e => setPriority(e.target.value)}
+                >
+                  <option value="alta">alta</option>
+                  <option value="media">media</option>
+                  <option value="baja">baja</option>
+                </select>
               </div>
               <div className="flex items-end gap-2">
                 <Input type="checkbox" checked={hasTask} onChange={(e) => setHasTask(e.currentTarget.checked)} />
@@ -192,14 +247,11 @@ const EmailDetailsDialog = ({ email, open, onOpenChange }: EmailDetailsDialogPro
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            {email.processed ? (
-              <Button variant="outline" onClick={() => markOneProcessed(false)}>
-                Desmarcar
-              </Button>
-            ) : (
-              <Button onClick={() => markOneProcessed(true)}>Marcar procesado</Button>
-            )}
+          <div className="flex justify-end">
+            <Button variant="destructive" onClick={deleteEmail} className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              Eliminar email
+            </Button>
           </div>
 
           {/* Email Body */}
