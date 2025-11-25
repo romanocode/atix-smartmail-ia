@@ -33,6 +33,18 @@ const DashboardLayout = ({ children }: { children?: ReactNode }) => {
       .slice(0, 2);
   };
 
+  const getBreadcrumb = () => {
+    const path = router.pathname;
+    
+    const breadcrumbMap: Record<string, string> = {
+      "/dashboard": "Dashboard",
+      "/dashboard/emails": "Emails",
+      "/dashboard/kanban": "Kanban",
+    };
+
+    return breadcrumbMap[path] || "Dashboard";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
@@ -44,7 +56,7 @@ const DashboardLayout = ({ children }: { children?: ReactNode }) => {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Dashboard</span>
             <span>/</span>
-            <span>Dashboard</span>
+            <span className="text-foreground font-medium">{getBreadcrumb()}</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/">

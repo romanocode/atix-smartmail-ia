@@ -14,6 +14,12 @@ export const authOptions: NextAuthOptions = {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
+          scope: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/gmail.readonly"
+          ].join(" "),
         },
       },
     }),
@@ -29,6 +35,13 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+      async signIn({ user, account, profile, email, credentials }) {
+        if (account && 'refresh_token_expires_in' in account) {
+          delete account.refresh_token_expires_in;
+        }
+        console.log('[NextAuth] signIn callback:', { user, account, profile, email, credentials });
+        return true;
+      },
   },
   session: {
     strategy: "database",

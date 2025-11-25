@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,22 @@ interface Email {
 }
 
 const KanbanView = () => {
+      const [isLoading, setIsLoading] = useState(false);
+
+      // Exponer setEmails y setIsLoading para el modal
+      React.useEffect(() => {
+        window.setEmails = setEmails;
+        window.setKanbanLoading = setIsLoading;
+        return () => {
+          delete window.setEmails;
+          delete window.setKanbanLoading;
+        };
+      }, []);
+    // Exponer setEmails para actualización inmediata desde el modal
+    React.useEffect(() => {
+      window.setEmails = setEmails;
+      return () => { delete window.setEmails; };
+    }, []);
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,10 +56,11 @@ const KanbanView = () => {
   const [filtersInProgress, setFiltersInProgress] = useState({ cliente: true, lead: true, interno: true });
   const [filtersDone, setFiltersDone] = useState({ cliente: true, lead: true, interno: true });
 
+  // Usar endpoint dedicado para obtener todas las tareas procesadas por IA (hasTask=true)
   const { data, refetch } = useQuery({
-    queryKey: ["emails", "kanban"],
+    queryKey: ["emails", "kanban-tasks"],
     queryFn: async () => {
-      const res = await fetch(`/api/emails`);
+      const res = await fetch(`/api/emails/kanban-tasks`);
       const json = await res.json();
       return json.emails as any[];
     },
@@ -113,6 +131,7 @@ const KanbanView = () => {
   };
 
   const handleCardClick = (email: Email) => {
+    console.log('Card clicked:', email);
     setSelectedEmail(email);
     setDialogOpen(true);
   };
@@ -369,7 +388,6 @@ const KanbanView = () => {
                   >
                     {/* Priority indicator bar */}
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${priorityInfo.dot}`} />
-                    
                     <div className="space-y-3 pl-2">
                       {/* Header con prioridad */}
                       <div className="flex items-start justify-between gap-3">
@@ -381,7 +399,6 @@ const KanbanView = () => {
                           <span className="ml-1 uppercase">{email.priority || 'baja'}</span>
                         </Badge>
                       </div>
-
                       {/* Tarea IA */}
                       {email.taskDescription && (
                         <div className="flex items-start gap-2 p-2.5 rounded-lg bg-gradient-to-br from-violet-50 to-blue-50 dark:from-violet-950/50 dark:to-blue-950/50 border border-violet-200/50 dark:border-violet-800/50">
@@ -391,7 +408,6 @@ const KanbanView = () => {
                           </p>
                         </div>
                       )}
-
                       {/* Footer metadata */}
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                         <div className="flex items-center gap-2">
@@ -428,7 +444,14 @@ const KanbanView = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8 relative">
+      {isLoading && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col items-center gap-4 p-8 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+            <span className="text-lg font-semibold text-primary">Cargando...</span>
+          </div>
+        </div>
+      )}
       {/* Header ejecutivo con filtros visibles */}
       <div className="flex items-center justify-between">
         <div>
@@ -515,8 +538,11 @@ const KanbanView = () => {
 
       <EmailDetailsDialog
         email={selectedEmail}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        open={dialogOpen && !!selectedEmail}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setSelectedEmail(null);
+        }}
       />
     </div>
   );

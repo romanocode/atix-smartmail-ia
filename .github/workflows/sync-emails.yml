@@ -1,0 +1,18 @@
+name: Sync Emails (scheduled)
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # every 2 hours
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sync-all endpoint
+        env:
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          curl -s -X POST \
+            -H "x-sync-secret: $SYNC_SECRET" \
+            https://your-app.example.com/api/emails/sync-all
