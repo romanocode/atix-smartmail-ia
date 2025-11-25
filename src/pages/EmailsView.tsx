@@ -99,7 +99,7 @@ const EmailsView = () => {
     const controller = new AbortController();
     setAbortController(controller);
     try {
-      let body: any = {};
+      const body: any = {};
       if (gmailRange !== 'all') {
         body.range = gmailRange;
         if (gmailRange === 'custom' && gmailCustomDate) {

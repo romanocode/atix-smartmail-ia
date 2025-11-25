@@ -35,7 +35,7 @@ export async function importUserGmail(refreshToken: string, userId: string, opts
 
     let imported = 0;
     const errors: Array<{ id: string; error: string }> = [];
-    let allMessages: Array<{ id?: string }> = [];
+    const allMessages: Array<{ id?: string }> = [];
 
     let nextPageToken: string | undefined = undefined;
     do {
@@ -78,7 +78,7 @@ export async function importUserGmail(refreshToken: string, userId: string, opts
 
         const out = { text: "", html: "" };
         walkPartsForBody(payload, out);
-        let body = out.text || out.html || (msg.data.snippet || "");
+        const body = out.text || out.html || (msg.data.snippet || "");
 
         try {
           await prisma.email.create({
