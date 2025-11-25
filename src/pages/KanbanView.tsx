@@ -28,17 +28,17 @@ const KanbanView = () => {
 
       // Exponer setEmails y setIsLoading para el modal
       React.useEffect(() => {
-        window.setEmails = setEmails;
-        window.setKanbanLoading = setIsLoading;
+        (window as any).setEmails = setEmails;
+        (window as any).setKanbanLoading = setIsLoading;
         return () => {
-          delete window.setEmails;
-          delete window.setKanbanLoading;
+          delete (window as any).setEmails;
+          delete (window as any).setKanbanLoading;
         };
       }, []);
     // Exponer setEmails para actualización inmediata desde el modal
     React.useEffect(() => {
-      window.setEmails = setEmails;
-      return () => { delete window.setEmails; };
+      (window as any).setEmails = setEmails;
+      return () => { delete (window as any).setEmails; };
     }, []);
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
